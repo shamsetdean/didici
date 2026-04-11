@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>DocuScope</title>
+<meta name="theme-color" content="#080810"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;
+  --gl:rgba(255,255,255,.06);
+  --gl2:rgba(255,255,255,.11);
+  --gb:rgba(255,255,255,.10);
+  --gb2:rgba(255,255,255,.20);
+  --t:#f0eef8;
+  --t2:rgba(240,238,248,.55);
+  --t3:rgba(240,238,248,.26);
+  --ac:#a78bfa;
+  --ac2:#818cf8;
+  --r14:14px;--r20:20px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);font-family:'Figtree',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+#amb{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(88px);opacity:.32}
+.o1{width:580px;height:580px;background:radial-gradient(circle,#4f46e5,transparent 70%);top:-180px;left:-80px}
+.o2{width:480px;height:480px;background:radial-gradient(circle,#7c3aed,transparent 70%);top:28%;right:-130px}
+.o3{width:380px;height:380px;background:radial-gradient(circle,#0ea5e9,transparent 70%);bottom:-80px;left:28%}
+
+#app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOPBAR */
+#topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 28px;flex-shrink:0;
+  background:linear-gradient(to bottom,rgba(8,8,16,.94) 0%,transparent 100%);
+}
+.logo{
+  font-size:19px;font-weight:600;letter-spacing:-.02em;
+  background:linear-gradient(135deg,var(--ac),var(--ac2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  flex-shrink:0;cursor:pointer;text-decoration:none;user-select:none;
+}
+.cats{display:flex;gap:2px;flex:1;overflow-x:auto;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cp{
+  background:none;border:1px solid transparent;color:var(--t2);
+  font-family:'Figtree',sans-serif;font-size:13px;font-weight:400;
+  padding:6px 13px;border-radius:999px;cursor:pointer;
+  transition:all .2s;white-space:nowrap;flex-shrink:0;
+}
+.cp:hover{background:var(--gl);color:var(--t)}
+.cp.on{background:var(--gl2);color:var(--t);border-color:var(--gb)}
+
+.sw{position:relative;flex-shrink:0}
+#si{
+  background:var(--gl);border:1px solid var(--gb);border-radius:999px;
+  color:var(--t);font-family:'Figtree',sans-serif;font-size:13px;
+  padding:7px 14px 7px 34px;width:180px;outline:none;
+  transition:width .3s,border-color .25s,background .25s;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+#si:focus{width:240px;border-color:var(--gb2);background:var(--gl2)}
+#si::placeholder{color:var(--t3)}
+.si-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:13px;height:13px;opacity:.38;pointer-events:none}
+
+.icon-btn{
+  background:var(--gl);border:1px solid var(--gb);
+  color:var(--t2);width:34px;height:34px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;transition:background .2s,color .2s;font-size:15px;
+}
+.icon-btn:hover{background:var(--gl2);color:var(--t)}
+
+/* SCROLL */
+#scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:40px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+#scroll::-webkit-scrollbar{width:3px}
+#scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+
+/* HERO */
+#hero{
+  position:relative;flex-shrink:0;
+  height:50vh;min-height:300px;
+  display:flex;align-items:flex-end;
+  padding:0 36px 36px;overflow:hidden;
+}
+#hbg{position:absolute;inset:0;background:linear-gradient(135deg,#0f0f22 0%,#080810 60%)}
+#hbg::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 55% 60% at 72% 38%,rgba(99,102,241,.18) 0%,transparent 65%),
+    radial-gradient(ellipse 35% 50% at 15% 65%,rgba(167,139,250,.12) 0%,transparent 55%);
+}
+#hfade{position:absolute;inset:0;background:linear-gradient(to top,var(--bg) 0%,transparent 50%)}
+#hc{position:relative;z-index:1;max-width:500px}
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.24);
+  border-radius:999px;padding:4px 12px;
+  font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ac);margin-bottom:14px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.ht{font-size:clamp(24px,4vw,44px);font-weight:300;line-height:1.1;letter-spacing:-.02em;color:var(--t);margin-bottom:10px}
+.ht strong{font-weight:600;font-style:italic;color:var(--ac)}
+.hs{font-size:13px;line-height:1.65;color:var(--t2);max-width:400px}
+
+/* ROWS */
+.row{margin-bottom:44px;padding-left:28px}
+.rh{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-right:28px}
+.rt{font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--t)}
+.rc{font-size:11px;color:var(--t3);margin-left:auto}
+.track{
+  display:flex;gap:10px;overflow-x:auto;overflow-y:visible;
+  padding:6px 28px 10px 0;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.05) transparent;
+}
+.track::-webkit-scrollbar{height:2px}
+.track::-webkit-scrollbar-thumb{background:rgba(255,255,255,.05);border-radius:1px}
+
+/* CARD */
+.card{
+  flex-shrink:0;width:214px;border-radius:var(--r14);overflow:hidden;
+  background:var(--gl);border:1px solid var(--gb);
+  cursor:pointer;position:relative;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1),border-color .25s,box-shadow .35s;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.card:hover{
+  transform:translateY(-6px) scale(1.03);
+  border-color:var(--gb2);
+  box-shadow:0 20px 42px rgba(0,0,0,.6),0 0 0 1px rgba(167,139,250,.14);
+  z-index:10;
+}
+.ct{position:relative;height:126px;overflow:hidden;background:rgba(255,255,255,.04)}
+.ct img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.card:hover .ct img{transform:scale(1.06)}
+.cov{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(8,8,16,.9) 0%,rgba(8,8,16,.2) 50%,transparent 100%);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .25s;
+}
+.card:hover .cov{opacity:1}
+.play{
+  width:44px;height:44px;border-radius:50%;
+  background:rgba(167,139,250,.9);
+  display:flex;align-items:center;justify-content:center;
+  transform:scale(.7);transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.card:hover .play{transform:scale(1)}
+.play svg{width:17px;height:17px;fill:#fff;margin-left:2px}
+.dur{
+  position:absolute;bottom:7px;right:8px;
+  font-size:10px;font-weight:500;letter-spacing:.03em;
+  background:rgba(8,8,16,.78);color:var(--t2);
+  padding:2px 7px;border-radius:999px;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.fav-btn{
+  position:absolute;top:7px;right:8px;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(8,8,16,.65);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;opacity:0;transition:opacity .2s;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.card:hover .fav-btn,.fav-btn.on{opacity:1}
+.cb{padding:11px 13px 13px}
+.ctitle{
+  font-size:12.5px;font-weight:400;line-height:1.4;color:var(--t);margin-bottom:5px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.cmeta{font-size:11px;color:var(--t3);display:flex;gap:6px;align-items:center}
+.dot{width:2px;height:2px;border-radius:50%;background:var(--t3)}
+
+/* SKELETON */
+.sk{flex-shrink:0;width:214px;border-radius:var(--r14);overflow:hidden;background:var(--gl);border:1px solid var(--gb)}
+.skt{height:126px;background:linear-gradient(90deg,var(--gl) 25%,rgba(255,255,255,.1) 50%,var(--gl) 75%);background-size:200% 100%;animation:sk 1.4s infinite}
+.skb{padding:11px 13px}
+.skl{height:9px;border-radius:4px;background:linear-gradient(90deg,var(--gl) 25%,rgba(255,255,255,.1) 50%,var(--gl) 75%);background-size:200% 100%;animation:sk 1.4s infinite;margin-bottom:7px}
+.skl:last-child{width:55%;margin-bottom:0}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* PLAYER */
+#player{
+  position:fixed;inset:0;z-index:999;
+  background:rgba(4,4,10,.92);
+  display:none;align-items:center;justify-content:center;
+  padding:20px;
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+#player.open{display:flex;animation:fi .3s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+#pbox{
+  width:100%;max-width:920px;
+  background:rgba(12,12,22,.96);
+  border:1px solid var(--gb2);border-radius:var(--r20);overflow:hidden;
+  animation:bi .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes bi{from{opacity:0;transform:scale(.93) translateY(14px)}to{opacity:1;transform:none}}
+#pvid{position:relative;padding-bottom:56.25%;height:0;background:#000}
+#pvid iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+#pinfo{padding:16px 20px 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+#ptitle{font-size:17px;font-weight:500;letter-spacing:-.01em;line-height:1.3;margin-bottom:5px;color:var(--t)}
+#pmeta{font-size:12px;color:var(--t3);display:flex;gap:10px}
+#pclose{
+  background:var(--gl);border:1px solid var(--gb);color:var(--t2);
+  font-size:17px;width:33px;height:33px;border-radius:9px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,color .2s;flex-shrink:0;line-height:1;
+}
+#pclose:hover{background:var(--gl2);color:var(--t)}
+
+/* SETTINGS PANEL */
+#settings{
+  position:fixed;inset:0;z-index:998;
+  background:rgba(4,4,10,.92);
+  display:none;align-items:center;justify-content:center;
+  padding:20px;
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+#settings.open{display:flex;animation:fi .25s ease}
+#sbox{
+  width:100%;max-width:520px;max-height:80vh;
+  background:rgba(13,13,22,.97);
+  border:1px solid var(--gb2);border-radius:var(--r20);
+  overflow:hidden;display:flex;flex-direction:column;
+  animation:bi .3s cubic-bezier(.34,1.56,.64,1);
+}
+#shead{
+  padding:18px 22px 16px;
+  border-bottom:1px solid var(--gb);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+#shead h2{font-size:16px;font-weight:500;letter-spacing:-.01em}
+#sbody{overflow-y:auto;padding:20px 22px;flex:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+#sbody::-webkit-scrollbar{width:3px}
+#sbody::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+
+.s-section{margin-bottom:24px}
+.s-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);margin-bottom:12px}
+.s-desc{font-size:12px;color:var(--t3);margin-bottom:14px;line-height:1.6}
+
+.bl-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.bl-item{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--gl);border:1px solid var(--gb);
+  border-radius:10px;padding:9px 12px;
+  font-size:13px;color:var(--t2);
+}
+.bl-remove{
+  background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.25);
+  color:rgba(239,68,68,.8);font-size:11px;font-weight:500;
+  padding:3px 9px;border-radius:999px;cursor:pointer;
+  transition:background .2s;white-space:nowrap;
+  font-family:'Figtree',sans-serif;
+}
+.bl-remove:hover{background:rgba(239,68,68,.28)}
+
+.add-row{display:flex;gap:8px}
+#bl-input{
+  flex:1;background:var(--gl);border:1px solid var(--gb);
+  border-radius:10px;color:var(--t);
+  font-family:'Figtree',sans-serif;font-size:13px;
+  padding:8px 12px;outline:none;
+  transition:border-color .2s;
+}
+#bl-input:focus{border-color:var(--gb2)}
+#bl-input::placeholder{color:var(--t3)}
+.add-btn{
+  background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.28);
+  color:var(--ac);font-family:'Figtree',sans-serif;font-size:13px;font-weight:500;
+  padding:8px 16px;border-radius:10px;cursor:pointer;
+  transition:background .2s;white-space:nowrap;
+}
+.add-btn:hover{background:rgba(167,139,250,.28)}
+
+.s-note{
+  font-size:11.5px;color:var(--t3);line-height:1.65;
+  background:var(--gl);border:1px solid var(--gb);
+  border-radius:10px;padding:10px 13px;margin-top:10px;
+}
+
+/* LEGAL */
+#legal{
+  position:fixed;inset:0;z-index:997;
+  background:rgba(4,4,10,.94);
+  display:none;overflow-y:auto;
+  padding:70px 40px 60px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+#legal.open{display:block;animation:fi .25s}
+#li{max-width:600px;margin:0 auto}
+#li h1{font-size:26px;font-weight:300;margin-bottom:28px;letter-spacing:-.02em}
+#li h2{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ac);margin:24px 0 9px}
+#li p{font-size:13px;line-height:1.75;color:var(--t2);margin-bottom:9px}
+#li a{color:var(--ac);text-decoration:none}
+.ol-close{
+  position:fixed;top:20px;right:20px;
+  background:var(--gl2);border:1px solid var(--gb2);
+  color:var(--t2);font-size:18px;
+  width:36px;height:36px;border-radius:9px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+
+/* FOOTER */
+#foot{padding:4px 28px 28px;flex-shrink:0;display:flex;gap:14px;font-size:11px;color:var(--t3)}
+#foot a{color:var(--t3);text-decoration:none;transition:color .2s}
+#foot a:hover{color:var(--t2)}
+
+/* EMPTY */
+.empty{padding:36px 0;font-size:13px;color:var(--t3);text-align:center}
+
+/* RESPONSIVE */
+@media(max-width:620px){
+  #topbar{padding:12px 16px}
+  .cats{display:none}
+  #hero{padding:0 18px 30px;min-height:260px}
+  .row{padding-left:16px}
+  .track{padding-right:16px}
+  .rh{padding-right:16px}
+  #foot{padding:4px 16px 22px}
+}
+</style>
+</head>
+<body>
+
+<div id="amb">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <a class="logo" href="#" onclick="goHome();return false">DocuScope</a>
+    <div class="cats">
+      <button class="cp on" onclick="nav('all',this)">Tout</button>
+      <button class="cp" onclick="nav('monde',this)">🌍 Monde</button>
+      <button class="cp" onclick="nav('science',this)">🔬 Science</button>
+      <button class="cp" onclick="nav('histoire',this)">🏛️ Histoire</button>
+      <button class="cp" onclick="nav('espace',this)">🌌 Espace</button>
+      <button class="cp" onclick="nav('societe',this)">🧠 Société</button>
+      <button class="cp" onclick="nav('favs',this)">★ Favoris</button>
+    </div>
+    <div class="sw">
+      <svg class="si-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5L14 14"/>
+      </svg>
+      <input id="si" type="text" placeholder="Rechercher…" autocomplete="off"/>
+    </div>
+    <button class="icon-btn" onclick="openSettings()" title="Paramètres — chaînes bloquées">⚙</button>
+  </div>
+
+  <div id="scroll">
+    <div id="hero">
+      <div id="hbg"></div>
+      <div id="hfade"></div>
+      <div id="hc">
+        <div class="badge">Documentaires éducatifs · Gratuit · Sans compte</div>
+        <h1 class="ht">Apprendre par<br><strong>l'image</strong></h1>
+        <p class="hs">Science, histoire, espace, société — des contenus sélectionnés depuis YouTube, dans une interface pensée pour explorer.</p>
+      </div>
+    </div>
+    <div id="rows"></div>
+    <div id="foot">
+      <span>DocuScope · Contenu YouTube officiel</span>
+      <a href="#" onclick="openLegal();return false">Mentions légales</a>
+      <a href="https://www.youtube.com/t/terms" target="_blank">CGU YouTube</a>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER -->
+<div id="player" onclick="playerBg(event)">
+  <div id="pbox">
+    <div id="pvid"></div>
+    <div id="pinfo">
+      <div><div id="ptitle"></div><div id="pmeta"></div></div>
+      <button id="pclose" onclick="closePlayer()">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" onclick="settingsBg(event)">
+  <div id="sbox">
+    <div id="shead">
+      <h2>⚙ Paramètres</h2>
+      <button class="icon-btn" onclick="closeSettings()" style="font-size:16px">✕</button>
+    </div>
+    <div id="sbody">
+      <div class="s-section">
+        <div class="s-label">Chaînes bloquées</div>
+        <div class="s-desc">Les vidéos issues de ces chaînes sont automatiquement filtrées des résultats.</div>
+        <div class="bl-list" id="bl-list"></div>
+        <div class="add-row">
+          <input id="bl-input" type="text" placeholder="Nom exact de la chaîne…" autocomplete="off"/>
+          <button class="add-btn" onclick="addBlocked()">Ajouter</button>
+        </div>
+        <div class="s-note">
+          Le nom doit correspondre exactement au nom de la chaîne YouTube (ex : "RMC Découverte"). La comparaison est insensible à la casse.
+        </div>
+      </div>
+      <div class="s-section">
+        <div class="s-label">À propos</div>
+        <div class="s-desc">
+          DocuScope utilise l'API YouTube officielle. Aucune vidéo n'est hébergée. Les publicités YouTube dans le lecteur sont celles de YouTube et de ses partenaires — elles ne sont ni bloquées ni modifiées par ce site.<br><br>
+          Quota API : 10 000 unités/jour (gratuit Google).
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGAL -->
+<div id="legal">
+  <button class="ol-close" onclick="document.getElementById('legal').classList.remove('open')">✕</button>
+  <div id="li">
+    <h1>Mentions légales</h1>
+    <h2>Éditeur</h2>
+    <p>Site personnel à vocation éducative, non commercial. Aucune donnée personnelle collectée ou transmise à un tiers.</p>
+    <h2>Hébergement</h2>
+    <p>GitHub Pages — Microsoft Corporation.</p>
+    <h2>Contenus vidéo</h2>
+    <p>Toutes les vidéos proviennent exclusivement de YouTube via l'API officielle YouTube Data API v3 et le lecteur embed YouTube. Ce site n'héberge aucune vidéo. Les droits appartiennent à leurs auteurs respectifs.</p>
+    <h2>Publicités YouTube</h2>
+    <p>Ce site ne bloque pas et ne modifie en aucune façon les publicités diffusées dans le lecteur YouTube intégré. Celles-ci relèvent exclusivement de YouTube et des ayants droit.</p>
+    <h2>Conformité YouTube</h2>
+    <p>Ce site respecte intégralement les <a href="https://www.youtube.com/t/terms" target="_blank">conditions d'utilisation de YouTube</a> et les <a href="https://developers.google.com/youtube/terms/api-services-terms-of-service" target="_blank">conditions de l'API YouTube</a>.</p>
+    <h2>Données locales</h2>
+    <p>Seul <code>localStorage</code> est utilisé pour mémoriser les favoris et les préférences. Aucun cookie tiers, aucun tracker, aucun serveur externe.</p>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const API_KEY = 'AIzaSyDqIMT2oi7rgDFLaG4l0-v6tfGmk2c7sqk';
+const YT = 'https://www.googleapis.com/youtube/v3';
+
+// Chaînes bloquées par défaut (condamnations CSA/Arcom documentées)
+const DEFAULT_BLOCKED = [
+  'RMC','RMC Découverte','RMC Sport','RMC BFM','BFM TV','BFMTV',
+  'France 24','C8','CNews','NRJ 12','TPMP','Cyril Hanouna',
+  'Touche Pas à Mon Poste'
+];
+
+// ── CATÉGORIES ───────────────────────────────────────────
+const CATS = [
+  {id:'monde',   label:'🌍 Monde',    q:'documentaire monde complet français'},
+  {id:'science', label:'🔬 Science',  q:'documentaire science vulgarisation complet français'},
+  {id:'histoire',label:'🏛️ Histoire', q:'documentaire histoire complet français'},
+  {id:'espace',  label:'🌌 Espace',   q:'documentaire espace univers complet français'},
+  {id:'societe', label:'🧠 Société',  q:'documentaire société enquête complet français'},
+];
+
+// ── STATE ────────────────────────────────────────────────
+let favs    = JSON.parse(localStorage.getItem('ds_favs')||'{}');
+let blocked = JSON.parse(localStorage.getItem('ds_blocked')||'null');
+if(!blocked){ blocked = [...DEFAULT_BLOCKED]; saveBlocked(); }
+
+let curCat  = 'all';
+let srchTmr = null;
+
+function saveBlocked(){ localStorage.setItem('ds_blocked', JSON.stringify(blocked)); }
+
+// ── INIT ─────────────────────────────────────────────────
+function init(){
+  renderAll('all');
+  document.getElementById('si').addEventListener('input', e => {
+    clearTimeout(srchTmr);
+    const q = e.target.value.trim();
+    if(!q){ renderAll(curCat); return; }
+    srchTmr = setTimeout(() => doSearch(q), 500);
+  });
+  document.getElementById('bl-input').addEventListener('keydown', e => {
+    if(e.key === 'Enter') addBlocked();
+  });
+}
+
+// ── FILTER ───────────────────────────────────────────────
+function isBlocked(channel){
+  if(!channel) return false;
+  const cl = channel.toLowerCase();
+  return blocked.some(b => cl.includes(b.toLowerCase()));
+}
+
+function filterVids(vids){
+  return vids.filter(v => !isBlocked(v.channel));
+}
+
+// ── RENDER ALL ───────────────────────────────────────────
+function renderAll(cat){
+  curCat = cat;
+  document.getElementById('hero').style.display = (cat === 'all') ? '' : 'none';
+  const rows = document.getElementById('rows');
+  rows.innerHTML = '';
+  const list = cat === 'all' ? CATS : CATS.filter(c => c.id === cat);
+  list.forEach(c => fetchAndRender(c));
+}
+
+// ── FETCH + RENDER ROW ───────────────────────────────────
+async function fetchAndRender(cat){
+  const rows = document.getElementById('rows');
+  const skRow = mkSkRow(cat.label, cat.id);
+  rows.appendChild(skRow);
+  try {
+    const vids = await ytSearch(cat.q, 18);
+    const filtered = filterVids(vids);
+    const real = document.createElement('div');
+    real.className = 'row'; real.dataset.cat = cat.id;
+    real.innerHTML = `<div class="rh"><span class="rt">${cat.label}</span><span class="rc">${filtered.length}</span></div><div class="track" id="track-${cat.id}"></div>`;
+    rows.replaceChild(real, skRow);
+    const track = real.querySelector('.track');
+    if(!filtered.length){ track.innerHTML = '<div class="empty">Aucun résultat disponible.</div>'; return; }
+    filtered.forEach(v => track.appendChild(mkCard(v)));
+  } catch(e){
+    skRow.querySelector('.track').innerHTML = '<div class="empty">Erreur de chargement. Vérifie ta clé API.</div>';
+  }
+}
+
+// ── YOUTUBE API ──────────────────────────────────────────
+async function ytSearch(query, n=14){
+  const p = new URLSearchParams({
+    part:'snippet', q:query, type:'video',
+    videoDuration:'long', videoEmbeddable:'true',
+    relevanceLanguage:'fr', maxResults:n, key:API_KEY
+  });
+  const r = await fetch(`${YT}/search?${p}`);
+  if(!r.ok) throw new Error('API');
+  const d = await r.json();
+  if(!d.items?.length) return [];
+  const ids = d.items.map(i => i.id.videoId).join(',');
+  const dr = await fetch(`${YT}/videos?part=contentDetails&id=${ids}&key=${API_KEY}`);
+  const dd = await dr.json();
+  const dm = {};
+  (dd.items||[]).forEach(x => { dm[x.id] = x; });
+  return d.items.map(i => {
+    const vid = i.id.videoId, det = dm[vid];
+    return {
+      videoId: vid,
+      title:   i.snippet.title,
+      channel: i.snippet.channelTitle,
+      year:    i.snippet.publishedAt?.slice(0,4)||'',
+      duration:det ? parseDur(det.contentDetails.duration) : '',
+      thumb:   i.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${vid}/mqdefault.jpg`
+    };
+  }).filter(v => v.title.length > 12);
+}
+
+function parseDur(iso){
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if(!m) return '';
+  const h = parseInt(m[1]||0), min = parseInt(m[2]||0);
+  return h ? `${h}h${min>0?min+'min':''}` : `${min} min`;
+}
+
+// ── SEARCH ───────────────────────────────────────────────
+async function doSearch(q){
+  document.getElementById('hero').style.display = 'none';
+  const rows = document.getElementById('rows');
+  rows.innerHTML = mkSkRowHTML('🔎 Recherche…', 'srch');
+  try {
+    const vids = filterVids(await ytSearch(`${q} documentaire`, 12));
+    rows.innerHTML = '';
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<div class="rh"><span class="rt">🔎 "${esc(q)}"</span><span class="rc">${vids.length}</span></div><div class="track"></div>`;
+    rows.appendChild(row);
+    const track = row.querySelector('.track');
+    if(!vids.length){ track.innerHTML = '<div class="empty">Aucun résultat.</div>'; return; }
+    vids.forEach(v => track.appendChild(mkCard(v)));
+  } catch(e){
+    rows.innerHTML = '<div class="empty" style="padding:40px 28px">Erreur. Vérifie ta connexion.</div>';
+  }
+}
+
+// ── CARD ─────────────────────────────────────────────────
+function mkCard(v){
+  const on = !!favs[v.videoId];
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <div class="ct">
+      <img src="${esc(v.thumb)}" alt="" loading="lazy"/>
+      <div class="cov"><div class="play"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div>
+      ${v.duration ? `<div class="dur">${v.duration}</div>` : ''}
+      <button class="fav-btn ${on?'on':''}" onclick="toggleFav(event,'${v.videoId}',this)">${on?'★':'☆'}</button>
+    </div>
+    <div class="cb">
+      <div class="ctitle">${esc(v.title)}</div>
+      <div class="cmeta">
+        <span>${esc(v.channel||'')}</span>
+        ${v.year ? `<span class="dot"></span><span>${v.year}</span>` : ''}
+      </div>
+    </div>`;
+  el.addEventListener('click', e => { if(e.target.closest('.fav-btn')) return; openPlayer(v); });
+  el._v = v;
+  return el;
+}
+
+// ── SKELETON ─────────────────────────────────────────────
+function skCards(n=6){ return Array(n).fill('<div class="sk"><div class="skt"></div><div class="skb"><div class="skl"></div><div class="skl"></div></div></div>').join(''); }
+function mkSkRow(label, id){
+  const d = document.createElement('div'); d.className='row'; d.id='sk-'+id;
+  d.innerHTML = `<div class="rh"><span class="rt">${label}</span></div><div class="track">${skCards()}</div>`;
+  return d;
+}
+function mkSkRowHTML(label){ return `<div class="row"><div class="rh"><span class="rt">${label}</span></div><div class="track">${skCards()}</div></div>`; }
+
+// ── PLAYER ───────────────────────────────────────────────
+function openPlayer(v){
+  document.getElementById('ptitle').textContent = v.title;
+  document.getElementById('pmeta').innerHTML = `<span>${v.channel||''}</span>${v.year?`<span>·</span><span>${v.year}</span>`:''}`;
+  document.getElementById('pvid').innerHTML = `<iframe src="https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
+  document.getElementById('player').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closePlayer(){
+  document.getElementById('player').classList.remove('open');
+  document.getElementById('pvid').innerHTML = '';
+  document.body.style.overflow = '';
+}
+function playerBg(e){ if(e.target === document.getElementById('player')) closePlayer(); }
+
+// ── FAVS ─────────────────────────────────────────────────
+function toggleFav(e, id, btn){
+  e.stopPropagation();
+  const v = btn.closest('.card')._v;
+  if(favs[id]){ delete favs[id]; btn.textContent='☆'; btn.classList.remove('on'); }
+  else { favs[id] = {...v}; btn.textContent='★'; btn.classList.add('on'); }
+  localStorage.setItem('ds_favs', JSON.stringify(favs));
+}
+
+function showFavs(){
+  document.getElementById('hero').style.display = 'none';
+  const rows = document.getElementById('rows');
+  rows.innerHTML = '';
+  const list = filterVids(Object.values(favs));
+  if(!list.length){ rows.innerHTML = '<div class="empty" style="padding:40px 28px">Aucun favori. Clique ★ sur une carte pour l\'ajouter ici.</div>'; return; }
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<div class="rh"><span class="rt">★ Mes favoris</span><span class="rc">${list.length}</span></div><div class="track"></div>`;
+  rows.appendChild(row);
+  const track = row.querySelector('.track');
+  list.forEach(v => track.appendChild(mkCard(v)));
+}
+
+// ── NAV ──────────────────────────────────────────────────
+function nav(cat, btn){
+  document.querySelectorAll('.cp').forEach(b => b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  document.getElementById('si').value = '';
+  if(cat === 'favs'){ showFavs(); return; }
+  renderAll(cat);
+  document.getElementById('scroll').scrollTo({top:0,behavior:'smooth'});
+}
+function goHome(){
+  document.querySelectorAll('.cp').forEach((b,i) => b.classList.toggle('on', i===0));
+  document.getElementById('si').value = '';
+  renderAll('all');
+  document.getElementById('scroll').scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── SETTINGS ─────────────────────────────────────────────
+function openSettings(){
+  renderBlockedList();
+  document.getElementById('settings').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSettings(){
+  document.getElementById('settings').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function settingsBg(e){ if(e.target === document.getElementById('settings')) closeSettings(); }
+
+function renderBlockedList(){
+  const list = document.getElementById('bl-list');
+  list.innerHTML = '';
+  if(!blocked.length){
+    list.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:4px 0">Aucune chaîne bloquée.</div>';
+    return;
+  }
+  blocked.forEach((name, i) => {
+    const item = document.createElement('div');
+    item.className = 'bl-item';
+    item.innerHTML = `<span>${esc(name)}</span><button class="bl-remove" onclick="removeBlocked(${i})">Retirer</button>`;
+    list.appendChild(item);
+  });
+}
+
+function addBlocked(){
+  const input = document.getElementById('bl-input');
+  const name = input.value.trim();
+  if(!name) return;
+  if(!blocked.includes(name)){
+    blocked.push(name);
+    saveBlocked();
+  }
+  input.value = '';
+  renderBlockedList();
+}
+
+function removeBlocked(i){
+  blocked.splice(i,1);
+  saveBlocked();
+  renderBlockedList();
+}
+
+// ── LEGAL ────────────────────────────────────────────────
+function openLegal(){ document.getElementById('legal').classList.add('open'); }
+
+// ── KEYBOARD ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    closePlayer();
+    closeSettings();
+    document.getElementById('legal').classList.remove('open');
+  }
+});
+
+// ── UTILS ────────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── BOOT ─────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
