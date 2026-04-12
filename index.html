@@ -285,6 +285,15 @@ html,body{
 .card-sig svg{width:10px;height:10px;fill:none;stroke:rgba(201,169,110,.6);stroke-width:1.6}
 .card:hover .card-sig{opacity:1}
 .card.scored .card-sig{top:24px}
+.card-source-badge{
+  position:absolute;bottom:7px;left:7px;
+  font-size:9px;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ac);
+  background:rgba(12,12,14,.82);
+  padding:2px 6px;border-radius:2px;
+  border:1px solid var(--ac2);
+  pointer-events:none;
+}
 
 /* métadonnées */
 .card-body{}
@@ -963,7 +972,7 @@ textarea.fi:focus{border-color:var(--rule2)}
     <h1>Mentions légales</h1>
     <h2>Éditeur</h2><p>Site personnel à vocation éducative, non commercial. Aucune donnée personnelle collectée ou transmise.</p>
     <h2>Hébergement</h2><p>GitHub Pages — Microsoft Corporation.</p>
-    <h2>Contenus vidéo</h2><p>Toutes les vidéos proviennent de YouTube via l'API officielle YouTube Data API v3 et le lecteur embed YouTube. Ce site n'héberge aucune vidéo.</p>
+    <h2>Contenus vidéo</h2><p>Les vidéos proviennent de deux sources officielles : YouTube via l'API officielle YouTube Data API v3 avec lecteur embed YouTube, et Internet Archive (archive.org) via son API publique gratuite. Les contenus Internet Archive sont dans le domaine public ou sous licence Creative Commons. Ce site n'héberge aucune vidéo.</p>
     <h2>Publicités YouTube</h2><p>Ce site ne bloque pas et ne modifie pas les publicités du lecteur YouTube.</p>
     <h2>Signalement de contenus illicites</h2><p>Conformément à la loi française et au règlement DSA, tout utilisateur peut signaler un contenu illicite. Les signalements peuvent être transmis à l'Arcom.</p>
     <h2>Données locales</h2><p>Seul le localStorage est utilisé — profil, favoris, historique. Aucun cookie tiers, aucun tracker.</p>
@@ -1150,9 +1159,10 @@ async function fetchChapter(cat){
   const ch=document.getElementById('chapters');
   const sec=mkChapter(cat.label,null,cat.id);ch.appendChild(sec);
   try{
-    let q=cat.q;
-    if(profile?.mode==='guide'&&profile?.goal)q=`${profile.goal} documentaire français complet`;
-    const vs=filterV(await ytSearch(q,18));
+    let ytQ=cat.q;
+    if(profile?.mode==='guide'&&profile?.goal)ytQ=`${profile.goal} documentaire français complet`;
+    const archQ=ARCH_Q[cat.id]||cat.label;
+    const vs=filterV(await fetchBoth(ytQ,archQ,16));
     const scored=vs.map(v=>({v,s:scoreV(v,cat.id)}));
     if(profile)scored.sort((a,b)=>b.s-a.s);
     sec.querySelector('.chapter-count').textContent=scored.length;
@@ -1173,10 +1183,65 @@ async function ytSearch(q,n=14){
   const dd=await dr.json();const dm={};(dd.items||[]).forEach(x=>{dm[x.id]=x;});
   return d.items.map(i=>{
     const vid=i.id.videoId,det=dm[vid];
-    return{videoId:vid,title:i.snippet.title,channel:i.snippet.channelTitle,year:i.snippet.publishedAt?.slice(0,4)||'',duration:det?parseDur(det.contentDetails.duration):'',thumb:i.snippet.thumbnails?.medium?.url||`https://img.youtube.com/vi/${vid}/mqdefault.jpg`};
+    return{videoId:vid,source:'youtube',title:i.snippet.title,channel:i.snippet.channelTitle,year:i.snippet.publishedAt?.slice(0,4)||'',duration:det?parseDur(det.contentDetails.duration):'',thumb:i.snippet.thumbnails?.medium?.url||`https://img.youtube.com/vi/${vid}/mqdefault.jpg`};
   }).filter(v=>v.title.length>12);
 }
 function parseDur(iso){const m=iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);if(!m)return'';const h=parseInt(m[1]||0),mn=parseInt(m[2]||0);return h?`${h}h${mn>0?mn+'min':''}`:`${mn}min`;}
+
+/* ── API Internet Archive ── */
+async function archiveSearch(q,n=6){
+  // Recherche dans le domaine public — aucune clé, aucune restriction
+  const params=new URLSearchParams({
+    q:`(${q}) AND mediatype:movies AND language:(french OR français OR fre) AND -collection:test_collection`,
+    fl:'identifier,title,creator,year,description',
+    rows:n,
+    output:'json',
+    sort:'downloads desc',
+  });
+  const r=await fetch(`https://archive.org/advancedsearch.php?${params}`);
+  if(!r.ok)return[];
+  const d=await r.json();
+  return(d.response?.docs||[])
+    .filter(x=>x.identifier&&x.title&&x.title.length>5)
+    .map(x=>({
+      videoId:x.identifier,
+      source:'archive',
+      title:x.title,
+      channel:x.creator||'Internet Archive',
+      year:String(x.year||''),
+      duration:'',
+      thumb:`https://archive.org/services/img/${x.identifier}`,
+      embedUrl:`https://archive.org/embed/${x.identifier}`,
+    }));
+}
+
+/* ── Fetch combiné YouTube + Archive ── */
+async function fetchBoth(ytQuery, archiveQuery, n=14){
+  const [yt, arc] = await Promise.allSettled([
+    ytSearch(ytQuery, n),
+    archiveSearch(archiveQuery, 5),
+  ]);
+  const ytVids  = yt.status==='fulfilled'  ? yt.value  : [];
+  const arcVids = arc.status==='fulfilled' ? arc.value : [];
+  // Intercale Archive après les 4 premières vidéos YouTube
+  const merged=[];
+  ytVids.forEach((v,i)=>{
+    merged.push(v);
+    if(i===3&&arcVids.length>0) merged.push(...arcVids.slice(0,3));
+    if(i===7&&arcVids.length>3) merged.push(...arcVids.slice(3));
+  });
+  if(ytVids.length===0) merged.push(...arcVids);
+  return merged;
+}
+
+/* ── Requêtes Archive par catégorie ── */
+const ARCH_Q={
+  monde:   'monde géographie voyage exploration',
+  science: 'science physique biologie chimie nature',
+  histoire:'histoire guerre révolution empire civilisation',
+  espace:  'espace cosmos planète étoile univers astronomie',
+  societe: 'société politique économie social enquête',
+};
 
 /* ── Recherche ── */
 async function doSearch(q){
@@ -1184,7 +1249,7 @@ async function doSearch(q){
   const ch=document.getElementById('chapters');
   const sec=mkChapter(`« ${q} »`,null,'srch');ch.innerHTML='';ch.appendChild(sec);
   try{
-    const vs=filterV(await ytSearch(`${q} documentaire`,12));
+    const vs=filterV(await fetchBoth(`${q} documentaire`,q,12));
     const scored=vs.map(v=>({v,s:scoreV(v,null)}));
     if(profile)scored.sort((a,b)=>b.s-a.s);
     sec.querySelector('.chapter-count').textContent=scored.length;
@@ -1206,16 +1271,18 @@ function mkCard(v,score){
   const isOn=!!favs[v.videoId];
   const isSeen=!!hist[v.videoId];
   const showScore=profile&&score>0;
+  const isArchive=v.source==='archive';
   const el=document.createElement('div');
   el.className='card'+(isSeen?' seen':'')+(showScore?' scored':'');
   el.innerHTML=`
     <div class="card-img">
-      <img src="${esc(v.thumb)}" alt="" loading="lazy"/>
+      <img src="${esc(v.thumb)}" alt="" loading="lazy" onerror="this.style.opacity='.3'"/>
       <div class="card-img-ov">
         <div class="card-play"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>
       </div>
       ${v.duration?`<div class="card-dur">${v.duration}</div>`:''}
       ${showScore?`<div class="card-score">${score}%</div>`:''}
+      ${isArchive?`<div class="card-source-badge">Archive</div>`:''}
       <button class="card-sig" onclick="sigCard(event)" title="Signaler">
         <svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 2v5M7 9v1"/><circle cx="7" cy="7" r="5.5"/></svg>
       </button>
@@ -1228,6 +1295,7 @@ function mkCard(v,score){
       <div class="card-meta">
         <span>${esc(v.channel||'')}</span>
         ${v.year?`<div class="card-sep"></div><span>${v.year}</span>`:''}
+        ${isArchive?`<div class="card-sep"></div><span style="color:var(--ac);font-size:10px;letter-spacing:.06em;text-transform:uppercase">domaine public</span>`:''}
       </div>
     </div>`;
   el.addEventListener('click',e=>{if(e.target.closest('.card-fav,.card-sig'))return;openPlayer(v);});
@@ -1238,8 +1306,11 @@ function mkCard(v,score){
 function openPlayer(v){
   curVideo=v;
   document.getElementById('ptitle').innerHTML=`<i>${esc(v.title)}</i>`;
-  document.getElementById('pmeta').innerHTML=`<span>${esc(v.channel||'')}</span>${v.year?`<span>·</span><span>${v.year}</span>`:''}`;
-  document.getElementById('pvid').innerHTML=`<iframe src="https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
+  document.getElementById('pmeta').innerHTML=`<span>${esc(v.channel||'')}</span>${v.year?`<span>·</span><span>${v.year}</span>`:''}${v.source==='archive'?`<span>·</span><span style="color:var(--ac);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Domaine public</span>`:''}`;
+  const embedSrc = v.source==='archive'
+    ? (v.embedUrl||`https://archive.org/embed/${v.videoId}`)
+    : `https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0`;
+  document.getElementById('pvid').innerHTML=`<iframe src="${embedSrc}" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
   document.getElementById('post-watch').classList.remove('show');
   document.getElementById('player').classList.add('open');
   document.body.style.overflow='hidden';
