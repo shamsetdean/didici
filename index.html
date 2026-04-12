@@ -726,7 +726,7 @@ textarea.fi:focus{border-color:var(--rule2)}
       <div class="add-row"><input id="bl-input" type="text" placeholder="Nom de la chaîne…"/><button class="btn ac" onclick="addBL()" style="flex-shrink:0;padding:7px 13px">Ajouter</button></div>
       <div class="s-sep"></div>
       <div class="s-head">Sources vidéo</div>
-      <div class="s-note">Didici combine sept sources : YouTube, Internet Archive (domaine public), Dailymotion, PeerTube, Wikimedia Commons, TED et Vimeo (Creative Commons). Filtrage strict — contenu éducatif et pédagogique uniquement, sans politique, sans polémique.</div>
+      <div class="s-note">Didici combine cinq sources : YouTube, Internet Archive (domaine public), Dailymotion, PeerTube et Wikimedia Commons. Filtrage strict — contenu éducatif et pédagogique uniquement, sans politique, sans polémique.</div>
       <div class="s-sep"></div>
       <div class="s-head">À propos</div>
       <div class="s-note">Toutes les données sont stockées localement dans votre navigateur. Aucun serveur externe, aucun tracker. Quota YouTube : 10 000 unités/jour.</div>
@@ -776,7 +776,7 @@ textarea.fi:focus{border-color:var(--rule2)}
     <h1>Mentions légales</h1>
     <h2>Éditeur</h2><p>Site personnel à vocation éducative, non commercial. Aucune donnée personnelle collectée ou transmise à un tiers.</p>
     <h2>Hébergement</h2><p>GitHub Pages — Microsoft Corporation.</p>
-    <h2>Sources vidéo</h2><p>Les vidéos proviennent de sept sources officielles : YouTube (API YouTube Data API v3), Internet Archive (domaine public ou Creative Commons), Dailymotion (chaînes officielles), PeerTube via SepiaSearch (licences libres), Wikimedia Commons (licences libres), TED (conférences éducatives officielles) et Vimeo (Creative Commons). Ce site n'héberge aucune vidéo. Un filtrage strict garantit que seuls des contenus éducatifs, pédagogiques et non polémiques sont affichés.</p>
+    <h2>Sources vidéo</h2><p>Les vidéos proviennent de cinq sources officielles : YouTube (API YouTube Data API v3), Internet Archive (domaine public ou Creative Commons), Dailymotion (chaînes officielles), PeerTube via SepiaSearch (licences libres) et Wikimedia Commons (licences libres). Ce site n'héberge aucune vidéo. Un filtrage strict garantit que seuls des contenus éducatifs et pédagogiques sont affichés.</p>
     <h2>Publicités</h2><p>Ce site ne bloque pas et ne modifie pas les publicités du lecteur YouTube. Internet Archive ne diffuse pas de publicités.</p>
     <h2>Signalement de contenus illicites</h2><p>Conformément à la loi française et au règlement DSA, tout utilisateur peut signaler un contenu illicite. Les signalements peuvent être transmis à l'Arcom.</p>
     <h2>Données locales</h2><p>Seul le localStorage est utilisé — profil, favoris, historique. Aucun cookie tiers, aucun tracker.</p>
@@ -1343,101 +1343,14 @@ async function wikiSearch(q,catId,n=3){
 }
 
 /* ══════════════════════════════════════
-   API TED / TED-Ed
-   Conférences éducatives officielles
-   Via l'API publique TED
+   TED et Vimeo désactivés
+   TED API v1 bloque les requêtes CORS navigateur
+   Vimeo nécessite une clé OAuth valide
+   Ces sources pourront être réintégrées
+   via un proxy serveur si nécessaire
 ══════════════════════════════════════ */
-async function tedSearch(q,catId,n=3){
-  try{
-    // TED utilise une API de recherche publique
-    const params=new URLSearchParams({
-      q,
-      language:'fr',
-      type:'talks',
-      per_page:n*2,
-      sort:'relevance',
-    });
-    const url=`https://api.ted.com/v1/talks.json?${params}&api-key=2a9uggd176yskwgbxk7rgjp7`;
-    const r=await fetch(url);
-    if(!r.ok){console.warn('TED',r.status);return[];}
-    const d=await r.json();
-    return(d.talks||[])
-      .filter(x=>{
-        if(!x.id||!x.title)return false;
-        const tmp={title:x.title,description:x.description||x.headline||'',channel:'TED'};
-        if(isContentBlacklisted(tmp))return false;
-        return true;
-      })
-      .slice(0,n)
-      .map(x=>({
-        videoId:'ted_'+x.id,
-        source:'ted',
-        title:x.title,
-        channel:'TED',
-        year:x.film_date?new Date(x.film_date*1000).getFullYear().toString():'',
-        duration:x.duration?formatDmDur(x.duration):'',
-        thumb:x.image||'',
-        description:x.description||x.headline||'Conférence éducative TED.',
-        embedUrl:`https://embed.ted.com/talks/${x.slug||x.id}`,
-      }));
-  }catch(e){
-    // TED API v1 peut être instable — essai via recherche web TED
-    console.warn('TED failed:',e);return[];
-  }
-}
-
-/* ══════════════════════════════════════
-   API VIMEO
-   Chaînes éducatives institutionnelles
-   Clé publique en lecture seule
-══════════════════════════════════════ */
-const VIMEO_TOKEN='9d06c568bb70b9f68a6a8a3c2b4e1f57'; // token public lecture seule
-async function vimeoSearch(q,catId,n=3){
-  try{
-    const params=new URLSearchParams({
-      query:q,
-      per_page:n*2,
-      sort:'relevant',
-      filter:'CC', // Creative Commons uniquement
-      filter_content_rating:'safe', // contenu familial
-      fields:'uri,name,description,duration,pictures,user,created_time,link',
-    });
-    const url=`https://api.vimeo.com/videos?${params}`;
-    const r=await fetch(url,{
-      headers:{
-        'Authorization':`bearer ${VIMEO_TOKEN}`,
-        'Accept':'application/vnd.vimeo.*+json;version=3.4',
-      }
-    });
-    if(!r.ok){console.warn('Vimeo',r.status);return[];}
-    const d=await r.json();
-    return(d.data||[])
-      .filter(x=>{
-        if(!x.uri||!x.name)return false;
-        if(x.duration&&x.duration<300)return false; // min 5 min
-        const tmp={title:x.name,description:x.description||'',channel:x.user?.name||''};
-        if(isContentBlacklisted(tmp))return false;
-        return true;
-      })
-      .slice(0,n)
-      .map(x=>{
-        const id=x.uri.replace('/videos/','');
-        const thumb=x.pictures?.sizes?.find(s=>s.width>=640)?.link||
-                    x.pictures?.sizes?.[0]?.link||'';
-        return{
-          videoId:'vimeo_'+id,
-          source:'vimeo',
-          title:x.name,
-          channel:x.user?.name||'Vimeo',
-          year:x.created_time?.slice(0,4)||'',
-          duration:x.duration?formatDmDur(x.duration):'',
-          thumb,
-          description:x.description||`Contenu éducatif — ${x.name}`,
-          embedUrl:`https://player.vimeo.com/video/${id}?autoplay=1`,
-        };
-      });
-  }catch(e){console.warn('Vimeo failed:',e);return[];}
-}
+async function tedSearch(){return[];}
+async function vimeoSearch(){return[];}
 
 async function fetchAllQuery(q,catId){
   const results=await Promise.allSettled([
