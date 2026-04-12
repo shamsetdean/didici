@@ -115,7 +115,7 @@ html,body{
 ───────────────────────────────────────── */
 #editorial{
   display:none;
-  padding:52px 36px 44px;
+  padding:36px 36px 32px;
   border-bottom:1px solid var(--rule);
   max-width:680px;
 }
@@ -192,7 +192,7 @@ html,body{
 /* ─────────────────────────────────────────
    SECTIONS / CHAPITRES
 ───────────────────────────────────────── */
-.chapter{padding:40px 0 0 36px;margin-bottom:44px}
+.chapter{padding:28px 0 0 36px;margin-bottom:36px}
 .chapter-header{
   display:flex;align-items:baseline;gap:12px;
   padding-right:36px;margin-bottom:22px;
@@ -227,7 +227,7 @@ html,body{
    CARD VIDÉO — style éditorial
 ───────────────────────────────────────── */
 .card{
-  flex-shrink:0;width:210px;cursor:pointer;
+  flex-shrink:0;width:260px;cursor:pointer;
   position:relative;
   transition:opacity .2s;
 }
@@ -237,8 +237,8 @@ html,body{
 /* image */
 .card-img{
   position:relative;overflow:hidden;
-  height:118px;background:var(--s2);
-  border-radius:4px;margin-bottom:10px;
+  height:148px;background:var(--s2);
+  border-radius:4px;margin-bottom:11px;
 }
 .card-img img{
   width:100%;height:100%;object-fit:cover;display:block;
@@ -310,8 +310,8 @@ html,body{
 /* ─────────────────────────────────────────
    SKELETON
 ───────────────────────────────────────── */
-.sk{flex-shrink:0;width:210px}
-.sk-img{height:118px;border-radius:4px;background:var(--s1);margin-bottom:10px;background:linear-gradient(90deg,var(--s1) 25%,var(--s2) 50%,var(--s1) 75%);background-size:200%;animation:sk 1.8s infinite}
+.sk{flex-shrink:0;width:260px}
+.sk-img{height:148px;border-radius:4px;background:var(--s1);margin-bottom:11px;background:linear-gradient(90deg,var(--s1) 25%,var(--s2) 50%,var(--s1) 75%);background-size:200%;animation:sk 1.8s infinite}
 .sk-l{height:9px;border-radius:2px;background:linear-gradient(90deg,var(--s1) 25%,var(--s2) 50%,var(--s1) 75%);background-size:200%;animation:sk 1.8s infinite;margin-bottom:6px}
 .sk-l:last-child{width:55%;margin-bottom:0}
 @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
@@ -1390,7 +1390,7 @@ document.addEventListener('keydown',e=>{
     document.getElementById('legal').classList.remove('open');
   }
 });
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 init();
 </script>
