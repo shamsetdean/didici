@@ -788,12 +788,66 @@ const ARCH_BASE='https://archive.org';
 
 const BL_DEFAULT=['RMC','RMC Découverte','RMC Sport','RMC BFM','BFM TV','BFMTV','France 24','C8','CNews','NRJ 12','TPMP','Cyril Hanouna','Touche Pas à Mon Poste'];
 
+// Mots-clés à exclure — contenu polémique, haineux, religieux sensible, complotiste
+const ARCH_BLACKLIST=[
+  'muhammad','islam','allah','jihad','quran','bible','jesus','christ','religion',
+  'nazi','concentration camp','holocaust','hitler','SS','gestapo',
+  'conspiracy','illuminati','freemason','secret society','nwo',
+  'sex','porn','adult','nude','naked','erotic',
+  'murder','killing','genocide','massacre','torture','execution',
+  'racist','racism','supremacy','kkk','aryan',
+  'propaganda','manifesto','extremist','terrorist','radical',
+  'truth about','absolute truth','exposed','they dont want',
+];
+
+function isArchBlacklisted(v){
+  const txt=(v.title+' '+(v.description||'')+(v.channel||'')).toLowerCase();
+  return ARCH_BLACKLIST.some(w=>txt.includes(w));
+}
+
+// Traductions françaises pour les descriptions Archive anglaises
+const ARCH_DESC_FR={
+  default:'Contenu éducatif du domaine public, disponible librement sur Internet Archive.',
+  science:'Document scientifique et pédagogique issu des archives publiques.',
+  histoire:'Document historique issu des archives publiques, à valeur éducative.',
+  monde:'Reportage ou documentaire sur le monde, issu des archives publiques.',
+  espace:'Document scientifique sur l\'astronomie et l\'exploration spatiale.',
+  societe:'Document éducatif sur les sciences sociales, issu des archives publiques.',
+};
+
+// Traduction simple du titre anglais si nécessaire
+function needsTranslation(text){
+  if(!text)return false;
+  // Détecte si le texte est principalement anglais (mots courants anglais)
+  const englishWords=['the','of','and','in','to','a','is','it','for','on','with','this','that','are','was','film','reel','part'];
+  const words=text.toLowerCase().split(/\s+/);
+  const engCount=words.filter(w=>englishWords.includes(w)).length;
+  return engCount>1||engCount/words.length>0.25;
+}
+
 const CATS=[
-  {id:'monde',   label:'Monde',   themes:['monde','geopolitique'],           ytQ:'documentaire monde complet français',   archQ:'world documentary history geography'},
-  {id:'science', label:'Science', themes:['science','technologie','nature'],  ytQ:'documentaire science vulgarisation complet français', archQ:'science documentary nature physics biology'},
-  {id:'histoire',label:'Histoire',themes:['histoire'],                       ytQ:'documentaire histoire complet français', archQ:'history documentary war civilization'},
-  {id:'espace',  label:'Espace',  themes:['espace','science'],               ytQ:'documentaire espace univers complet français', archQ:'space cosmos universe documentary astronomy'},
-  {id:'societe', label:'Société', themes:['societe','psychologie','economie'],ytQ:'documentaire société enquête complet français', archQ:'society documentary social economics'},
+  {id:'monde',   label:'Monde',   themes:['monde','geopolitique'],
+   ytQ:'documentaire monde complet français',
+   // Archive : requêtes ciblées sur contenu éducatif neutre et non polémique
+   archQ:'geography nature travel educational documentary',
+   archCat:'monde'},
+  {id:'science', label:'Science', themes:['science','technologie','nature'],
+   ytQ:'documentaire science vulgarisation complet français',
+   archQ:'science physics biology chemistry educational film',
+   archCat:'science'},
+  {id:'histoire',label:'Histoire',themes:['histoire'],
+   ytQ:'documentaire histoire complet français',
+   // Histoire : éviter guerres et conflits sensibles, cibler civilisations
+   archQ:'ancient civilization archaeology prehistoric educational film',
+   archCat:'histoire'},
+  {id:'espace',  label:'Espace',  themes:['espace','science'],
+   ytQ:'documentaire espace univers complet français',
+   archQ:'space astronomy cosmos planets stars educational',
+   archCat:'espace'},
+  {id:'societe', label:'Société', themes:['societe','psychologie','economie'],
+   ytQ:'documentaire société enquête complet français',
+   archQ:'educational social documentary culture community',
+   archCat:'societe'},
 ];
 
 const PC={
@@ -885,47 +939,80 @@ function parseDur(iso){
 
 /* ══════════════════════════════════════
    API INTERNET ARCHIVE
-   Domaine public uniquement — aucune clé
+   Domaine public — filtrage strict éducatif
 ══════════════════════════════════════ */
-async function archSearch(q,n=4){
+async function archSearch(q,catId,n=6){
   try{
-    // Recherche de vidéos libres de droits
+    // Requête avec filtre qualité — exclure contenu court et non éducatif
     const params=new URLSearchParams({
-      q:`(${q}) AND mediatype:movies`,
-      'fl[]':['identifier','title','creator','year','description','runtime'],
-      rows:n,
+      q:`(${q}) AND mediatype:movies AND -mediatype:audio`,
+      rows:n*3, // On récupère plus pour filtrer ensuite
       page:1,
       output:'json',
       sort:'-downloads',
     });
-    const url=`${ARCH_BASE}/advancedsearch.php?${params}`;
+    // Ajouter les champs explicitement
+    const url=`${ARCH_BASE}/advancedsearch.php?${params}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=description&fl[]=runtime&fl[]=subject`;
     const r=await fetch(url,{headers:{'Accept':'application/json'}});
-    if(!r.ok){console.warn('Archive.org error',r.status);return[];}
+    if(!r.ok){console.warn('Archive.org',r.status);return[];}
     const d=await r.json();
     const docs=d?.response?.docs||[];
+
     return docs
-      .filter(x=>x.identifier&&x.title&&String(x.title).length>5)
-      .map(x=>({
-        videoId:String(x.identifier),
-        source:'archive',
-        title:String(x.title),
-        channel:x.creator?String(Array.isArray(x.creator)?x.creator[0]:x.creator):'Internet Archive',
-        year:x.year?String(x.year):'',
-        duration:x.runtime?String(x.runtime):'',
-        thumb:`${ARCH_BASE}/services/img/${x.identifier}`,
-        description:x.description?String(Array.isArray(x.description)?x.description[0]:x.description).slice(0,300):'Contenu du domaine public disponible sur Internet Archive.',
-        embedUrl:`${ARCH_BASE}/embed/${x.identifier}`,
-      }));
+      .filter(x=>{
+        if(!x.identifier||!x.title)return false;
+        const title=String(x.title);
+        if(title.length<5)return false;
+        // Construire objet temporaire pour blacklist
+        const tmp={title,description:x.description?String(Array.isArray(x.description)?x.description[0]:x.description):'',channel:x.creator?String(Array.isArray(x.creator)?x.creator[0]:x.creator):''};
+        // Filtrer contenu polémique/sensible/religieux
+        if(isArchBlacklisted(tmp))return false;
+        // Filtrer identifiants suspects
+        const id=String(x.identifier).toLowerCase();
+        if(ARCH_BLACKLIST.some(w=>id.includes(w)))return false;
+        return true;
+      })
+      .slice(0,n)
+      .map(x=>{
+        const rawTitle=String(x.title);
+        const rawDesc=x.description?String(Array.isArray(x.description)?x.description[0]:x.description):'';
+        const rawCreator=x.creator?String(Array.isArray(x.creator)?x.creator[0]:x.creator):'Internet Archive';
+
+        // Nettoyer le titre : supprimer underscores, codes techniques
+        const cleanTitle=rawTitle.replace(/_/g,' ').replace(/\s+/g,' ').trim();
+
+        // Description en français
+        let descFr=ARCH_DESC_FR[catId]||ARCH_DESC_FR.default;
+        if(rawDesc&&rawDesc.length>20&&!needsTranslation(rawDesc)){
+          // Description déjà en français ou neutre
+          descFr=rawDesc.slice(0,280);
+        } else if(rawDesc&&rawDesc.length>20){
+          // Description anglaise : on fournit une description générique en français selon catégorie
+          descFr=ARCH_DESC_FR[catId]||ARCH_DESC_FR.default;
+        }
+
+        return{
+          videoId:String(x.identifier),
+          source:'archive',
+          title:cleanTitle,
+          channel:rawCreator.replace(/_/g,' '),
+          year:x.year?String(x.year):'',
+          duration:x.runtime?String(x.runtime):'',
+          thumb:`${ARCH_BASE}/services/img/${x.identifier}`,
+          description:descFr,
+          embedUrl:`${ARCH_BASE}/embed/${x.identifier}`,
+        };
+      });
   }catch(e){console.warn('Archive search failed:',e);return[];}
 }
 
 /* ══════════════════════════════════════
    FETCH COMBINÉ
 ══════════════════════════════════════ */
-async function fetchBoth(ytQ,archQ,ytN=10,archN=4){
+async function fetchBoth(ytQ,archQ,catId,ytN=10,archN=4){
   const [ytR,archR]=await Promise.allSettled([
     ytSearch(ytQ,ytN),
-    archSearch(archQ,archN),
+    archSearch(archQ,catId,archN),
   ]);
   const ytVids  = ytR.status==='fulfilled'  ? ytR.value  : [];
   const archVids= archR.status==='fulfilled' ? archR.value: [];
@@ -1022,7 +1109,7 @@ async function fetchSection(cat){
   try{
     let ytQ=cat.ytQ;
     if(profile?.mode==='guide'&&profile?.goal)ytQ=`${profile.goal} documentaire français`;
-    const vs=fv(await fetchBoth(ytQ,cat.archQ,10,4));
+    const vs=fv(await fetchBoth(ytQ,cat.archQ,cat.id,10,4));
     renderSection(sec,vs,cat.id);
   }catch(e){
     sec.querySelector('.vgrid').innerHTML='<div class="empty">Erreur de chargement.</div>';
@@ -1047,7 +1134,7 @@ async function doSearch(q){
   const secs=document.getElementById('sections');
   const sec=mkSection(`« ${q} »`,null,'srch');secs.innerHTML='';secs.appendChild(sec);
   try{
-    const vs=fv(await fetchBoth(`${q} documentaire français`,q,10,4));
+    const vs=fv(await fetchBoth(`${q} documentaire français`,q,'default',10,4));
     renderSection(sec,vs,null);
   }catch(e){secs.innerHTML='<div class="empty" style="padding:32px">Erreur de chargement.</div>';}
 }
