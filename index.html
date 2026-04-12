@@ -796,33 +796,46 @@ const BL_DEFAULT=['RMC','RMC Découverte','RMC Sport','RMC BFM','BFM TV','BFMTV'
 // Tout contenu dont le titre ou la description contient ces mots est exclu
 const CONTENT_BLACKLIST=[
   // Corps, sexualité, mutilations
-  'excis','excision','mutilation','sexuel','sexe','corps','nu ','nue ','nudité',
+  'excis','excision','mutilation','sexuel','sexe','nu ','nue ','nudité',
   'avortement','contraception','prostitution','viol','agression','inceste',
-  'pornograph','érotique','intime','genre','transgenre','transidentité',
-  // Religion (neutre sur la plateforme)
+  'pornograph','érotique','genre ','transgenre','transidentité',
+  // Religion
   'muhammad','islam','allah','jihad','quran','coran','bible','jésus','christ',
-  'religion','église','mosquée','synagogue','dieu ','prière','croyance',
+  'religion','église','mosquée','synagogue','prière','croyance',
   // Violence et conflits sensibles
-  'nazi','concentration camp','holocaust','hitler','SS ','génocide',
+  'nazi','concentration camp','holocaust','hitler','génocide',
   'massacre','torture','exécution','meurtre','crime de guerre',
   'terroriste','terrorisme','attentat','djihadiste','islamiste',
   // Polémique sociétale
   'complot','illuminati','franc-maçon','secret society',
   'racisme','suprématie','kkk','aryen','antisémit',
-  'propagande','extrémiste','radical','manifeste',
+  'propagande','extrémiste','manifeste',
   'immigration','migrants','identité nationale','woke','cancel',
-  'avortement','euthanasie','peine de mort','drogue','addiction',
+  'euthanasie','peine de mort','drogue','addiction',
   // Santé sensible
   'suicide','automutilation','anorexie','boulimie',
   'overdose','stupéfiant','cannabis','cocaïne','héroïne',
+  // ── POLITIQUE FRANÇAISE — aucune vidéo politique ──────────────────
+  'macron','hollande','sarkozy','chirac','mitterrand','de gaulle',
+  'élection','élections','présidentielle','législative','municipale',
+  'parti ','partis ','gauche','droite','extrême','rassemblement national',
+  'front national','la france insoumise','mélenchon','le pen','zemmour',
+  'assemblée nationale','sénat','gouvernement','premier ministre',
+  'ministre','deputé','parlement','politique ','politiques ','politicien',
+  'syndicat','grève','manifestation','retraites réforme',
+  'débat politique','programme politique','vote','référendum',
+  'cohabitation','cinquième République','constitution française',
+  // Médias et personnalités polémiques
+  'bolloré','cnews','valeurs actuelles','causeur',
+  'bfm','rmc','tpmp','hanouna','zemmour','raoult',
   // Clickbait / sensationnaliste
-  'choc','shocking','scandale','révélation','incroyable','fou ',
+  'choc','shocking','scandale','révélation','incroyable ','fou ',
   'interdit','censuré','caché','truth','exposed','they hide',
-  'absolute truth','conspiracy','illuminati',
+  'absolute truth','conspiracy',
   // Anglais sensible
   'sex','porn','adult','nude','naked','erotic','murder','killing',
   'genocide','torture','execution','racist','racism','supremacy',
-  'propaganda','extremist','terrorist','radical',
+  'propaganda','extremist','terrorist',
 ];
 
 // Filtre universel — s'applique à toutes les sources
@@ -838,8 +851,16 @@ function isContentBlacklisted(v){
   });
 }
 
-// Garde isArchBlacklisted pour compatibilité
+// Alias pour compatibilité
 function isArchBlacklisted(v){return isContentBlacklisted(v);}
+// Pour archSearch — vérifie aussi l'identifiant
+function isArchIdBlacklisted(id){
+  const idn=id.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return CONTENT_BLACKLIST.some(w=>{
+    const wn=w.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return wn.length>3&&idn.includes(wn);
+  });
+}
 
 // ── DESCRIPTIONS FRANÇAISES ────────────────────────────────────────────────
 const ARCH_DESC_FR={
@@ -1018,7 +1039,7 @@ async function archSearch(q,catId,n=6){
         if(isArchBlacklisted(tmp))return false;
         // Filtrer identifiants suspects
         const id=String(x.identifier).toLowerCase();
-        if(ARCH_BLACKLIST.some(w=>id.includes(w)))return false;
+        if(isArchIdBlacklisted(id))return false;
         return true;
       })
       .slice(0,n)
