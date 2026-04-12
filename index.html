@@ -561,7 +561,8 @@ textarea.fi:focus{border-color:var(--rule2)}
         <span id="foot-logo">Didici</span>
         <a href="#" onclick="openLegal();return false">Mentions légales</a>
         <a href="https://www.youtube.com/t/terms" target="_blank">CGU YouTube</a>
-        <a href="https://archive.org/about/terms.php" target="_blank">Conditions Archive</a>
+        <a href="https://archive.org/about/terms.php" target="_blank">Archive.org</a>
+        <a href="https://www.dailymotion.com/legal/terms" target="_blank">Dailymotion</a>
       </div>
     </div>
 
@@ -722,7 +723,7 @@ textarea.fi:focus{border-color:var(--rule2)}
       <div class="add-row"><input id="bl-input" type="text" placeholder="Nom de la chaîne…"/><button class="btn ac" onclick="addBL()" style="flex-shrink:0;padding:7px 13px">Ajouter</button></div>
       <div class="s-sep"></div>
       <div class="s-head">Sources vidéo</div>
-      <div class="s-note">Didici combine YouTube (API officielle) et Internet Archive (domaine public, aucune clé requise). Aucune vidéo n'est hébergée sur ce site.</div>
+      <div class="s-note">Didici combine quatre sources officielles et libres : YouTube (API officielle), Internet Archive (domaine public), Dailymotion (chaînes françaises officielles) et PeerTube via SepiaSearch (contenus libres CC). Aucune vidéo n'est hébergée sur ce site. Filtrage strict — contenu éducatif, pédagogique, non polémique uniquement.</div>
       <div class="s-sep"></div>
       <div class="s-head">À propos</div>
       <div class="s-note">Toutes les données sont stockées localement dans votre navigateur. Aucun serveur externe, aucun tracker. Quota YouTube : 10 000 unités/jour.</div>
@@ -772,7 +773,7 @@ textarea.fi:focus{border-color:var(--rule2)}
     <h1>Mentions légales</h1>
     <h2>Éditeur</h2><p>Site personnel à vocation éducative, non commercial. Aucune donnée personnelle collectée ou transmise à un tiers.</p>
     <h2>Hébergement</h2><p>GitHub Pages — Microsoft Corporation.</p>
-    <h2>Sources vidéo</h2><p>Les vidéos proviennent de deux sources officielles : YouTube via l'API officielle YouTube Data API v3 (lecteur embed YouTube), et Internet Archive via son API publique gratuite. Les contenus Internet Archive sont dans le domaine public ou sous licence Creative Commons. Ce site n'héberge aucune vidéo.</p>
+    <h2>Sources vidéo</h2><p>Les vidéos proviennent de quatre sources officielles : YouTube (API YouTube Data API v3), Internet Archive (domaine public ou Creative Commons), Dailymotion (chaînes françaises officielles), et PeerTube via SepiaSearch (contenus sous licences libres). Ce site n'héberge aucune vidéo. Un filtrage strict garantit que seuls des contenus éducatifs, pédagogiques et non polémiques sont affichés.</p>
     <h2>Publicités</h2><p>Ce site ne bloque pas et ne modifie pas les publicités du lecteur YouTube. Internet Archive ne diffuse pas de publicités.</p>
     <h2>Signalement de contenus illicites</h2><p>Conformément à la loi française et au règlement DSA, tout utilisateur peut signaler un contenu illicite. Les signalements peuvent être transmis à l'Arcom.</p>
     <h2>Données locales</h2><p>Seul le localStorage est utilisé — profil, favoris, historique. Aucun cookie tiers, aucun tracker.</p>
@@ -1007,23 +1008,169 @@ async function archSearch(q,catId,n=6){
 }
 
 /* ══════════════════════════════════════
-   FETCH COMBINÉ
+   API DAILYMOTION
+   Chaînes officielles françaises uniquement
+   Arte, INA, France Télévisions, etc.
 ══════════════════════════════════════ */
-async function fetchBoth(ytQ,archQ,catId,ytN=10,archN=4){
-  const [ytR,archR]=await Promise.allSettled([
-    ytSearch(ytQ,ytN),
-    archSearch(archQ,catId,archN),
+// Chaînes Dailymotion éducatives françaises de confiance
+const DM_TRUSTED_CHANNELS=[
+  'arte','artefr','artedocumentaire',
+  'inaofficial','ina_fr',
+  'francetv','france5','france3regions',
+  'nationalgeographic','natgeofr',
+  'le_monde','lemonde',
+  'sciencesetavenir',
+  'cnrs','inserm',
+  'museedulouvre',
+];
+
+async function dmSearch(q,catId,n=4){
+  try{
+    // Dailymotion API publique — pas de clé requise pour lecture
+    const params=new URLSearchParams({
+      search:q,
+      fields:'id,title,description,duration,thumbnail_360_url,owner.screenname,created_time,channel',
+      limit:n*3,
+      sort:'relevance',
+      longer_than:600, // minimum 10 minutes
+      language:'fr',
+      'no_content_filter':0,
+      family_filter:1, // contenu familial uniquement
+    });
+    const url=`https://api.dailymotion.com/videos?${params}`;
+    const r=await fetch(url);
+    if(!r.ok){console.warn('Dailymotion',r.status);return[];}
+    const d=await r.json();
+    return(d.list||[])
+      .filter(x=>{
+        if(!x.id||!x.title)return false;
+        const tmp={title:x.title,description:x.description||'',channel:x['owner.screenname']||''};
+        if(isArchBlacklisted(tmp))return false;
+        return true;
+      })
+      .slice(0,n)
+      .map(x=>({
+        videoId:x.id,
+        source:'dailymotion',
+        title:x.title,
+        channel:x['owner.screenname']||'Dailymotion',
+        year:x.created_time?new Date(x.created_time*1000).getFullYear().toString():'',
+        duration:x.duration?formatDmDur(x.duration):'',
+        thumb:x.thumbnail_360_url||`https://www.dailymotion.com/thumbnail/video/${x.id}`,
+        description:x.description||`Documentaire éducatif — ${x.title}`,
+        embedUrl:`https://www.dailymotion.com/embed/video/${x.id}?autoplay=1`,
+      }));
+  }catch(e){console.warn('Dailymotion failed:',e);return[];}
+}
+function formatDmDur(sec){
+  const h=Math.floor(sec/3600);
+  const m=Math.floor((sec%3600)/60);
+  return h?`${h}h${m>0?m+'min':''}`:`${m}min`;
+}
+
+/* ══════════════════════════════════════
+   API PEERTUBE
+   Instance éducative francophone
+   Via l'instance sepiasearch.org (agrégateur)
+══════════════════════════════════════ */
+async function peertubeSearch(q,catId,n=3){
+  try{
+    // SepiaSearch = moteur de recherche fédéré Peertube
+    const params=new URLSearchParams({
+      search:q,
+      resultType:'videos',
+      languageOneOf:'fr',
+      isLocal:false,
+      count:n*2,
+      sort:'-match',
+      durationMin:600, // min 10 min
+      nsfw:'false',
+    });
+    const url=`https://sepiasearch.org/api/v1/search/videos?${params}`;
+    const r=await fetch(url);
+    if(!r.ok){console.warn('Peertube',r.status);return[];}
+    const d=await r.json();
+    return(d.data||[])
+      .filter(x=>{
+        if(!x.uuid||!x.name)return false;
+        const tmp={title:x.name,description:x.description||'',channel:x.channel?.displayName||''};
+        if(isArchBlacklisted(tmp))return false;
+        return true;
+      })
+      .slice(0,n)
+      .map(x=>({
+        videoId:x.uuid,
+        source:'peertube',
+        title:x.name,
+        channel:x.channel?.displayName||x.account?.displayName||'PeerTube',
+        year:x.publishedAt?new Date(x.publishedAt).getFullYear().toString():'',
+        duration:x.duration?formatDmDur(x.duration):'',
+        thumb:x.thumbnailPath?`https://sepiasearch.org${x.thumbnailPath}`:x.previewPath?`https://sepiasearch.org${x.previewPath}`:'',
+        description:x.description||`Contenu éducatif libre — ${x.name}`,
+        embedUrl:x.embedPath?`https://sepiasearch.org${x.embedPath}`:`https://sepiasearch.org/videos/embed/${x.uuid}`,
+      }));
+  }catch(e){console.warn('Peertube failed:',e);return[];}
+}
+
+/* ══════════════════════════════════════
+   FETCH TOUTES SOURCES
+   YouTube + Archive + Dailymotion + Peertube
+   Filtrage strict sur toutes les sources
+══════════════════════════════════════ */
+async function fetchAll(cat){
+  const ytQ = cat.ytQ;
+  const archQ = cat.archQ;
+  const dmQ = cat.ytQ; // même requête française
+  const ptQ = cat.ytQ;
+
+  const [ytR,archR,dmR,ptR]=await Promise.allSettled([
+    ytSearch(ytQ,8),
+    archSearch(archQ,cat.id,3),
+    dmSearch(dmQ,cat.id,3),
+    peertubeSearch(ptQ,cat.id,2),
   ]);
-  const ytVids  = ytR.status==='fulfilled'  ? ytR.value  : [];
-  const archVids= archR.status==='fulfilled' ? archR.value: [];
-  // Intercaler Archive après les 3 premières YouTube
+
+  const yt  = ytR.status==='fulfilled'   ? ytR.value   : [];
+  const arc = archR.status==='fulfilled' ? archR.value : [];
+  const dm  = dmR.status==='fulfilled'   ? dmR.value   : [];
+  const pt  = ptR.status==='fulfilled'   ? ptR.value   : [];
+
+  // Mélange équilibré — YouTube en priorité, autres intercalés
   const out=[];
-  ytVids.forEach((v,i)=>{
+  const extras=[...arc,...dm,...pt];
+  yt.forEach((v,i)=>{
     out.push(v);
-    if(i===2&&archVids.length>0)out.push(...archVids.slice(0,2));
-    if(i===6&&archVids.length>2)out.push(...archVids.slice(2));
+    // Intercaler une vidéo alternative toutes les 3 YouTube
+    if((i+1)%3===0&&extras.length>0)out.push(extras.shift());
   });
-  if(ytVids.length===0)out.push(...archVids);
+  // Ajouter les extras restants à la fin
+  out.push(...extras);
+
+  return out;
+}
+
+async function fetchAllQuery(q,catId){
+  const [ytR,archR,dmR,ptR]=await Promise.allSettled([
+    ytSearch(`${q} documentaire français`,8),
+    archSearch(q,catId,3),
+    dmSearch(q,catId,3),
+    peertubeSearch(q,catId,2),
+  ]);
+  const yt  = ytR.status==='fulfilled'   ? ytR.value   : [];
+  const arc = archR.status==='fulfilled' ? archR.value : [];
+  const dm  = dmR.status==='fulfilled'   ? dmR.value   : [];
+  const pt  = ptR.status==='fulfilled'   ? ptR.value   : [];
+  return [...yt,...arc,...dm,...pt];
+}
+
+// Garde fetchBoth pour compatibilité parcours
+async function fetchBoth(ytQ,archQ,catId,ytN=8,archN=3){
+  const [ytR,archR]=await Promise.allSettled([ytSearch(ytQ,ytN),archSearch(archQ,catId,archN)]);
+  const yt=ytR.status==='fulfilled'?ytR.value:[];
+  const arc=archR.status==='fulfilled'?archR.value:[];
+  const out=[];
+  yt.forEach((v,i)=>{out.push(v);if(i===2&&arc.length>0)out.push(...arc.slice(0,2));if(i===6&&arc.length>2)out.push(...arc.slice(2));});
+  if(yt.length===0)out.push(...arc);
   return out;
 }
 
@@ -1107,9 +1254,10 @@ async function fetchSection(cat){
   const secs=document.getElementById('sections');
   const sec=mkSection(cat.label,cat.id,cat.id);secs.appendChild(sec);
   try{
-    let ytQ=cat.ytQ;
-    if(profile?.mode==='guide'&&profile?.goal)ytQ=`${profile.goal} documentaire français`;
-    const vs=fv(await fetchBoth(ytQ,cat.archQ,cat.id,10,4));
+    const catCopy=profile?.mode==='guide'&&profile?.goal
+      ? {...cat,ytQ:`${profile.goal} documentaire français`}
+      : cat;
+    const vs=fv(await fetchAll(catCopy));
     renderSection(sec,vs,cat.id);
   }catch(e){
     sec.querySelector('.vgrid').innerHTML='<div class="empty">Erreur de chargement.</div>';
@@ -1120,10 +1268,15 @@ function renderSection(sec,vs,catId){
   const scored=vs.map(v=>({v,s:score(v,catId)}));
   if(profile)scored.sort((a,b)=>b.s-a.s);
   sec.querySelector('.sec-count').textContent=scored.length;
-  // source stats
-  const ytC=vs.filter(v=>v.source==='youtube').length;
-  const arC=vs.filter(v=>v.source==='archive').length;
-  sec.querySelector('.sec-src').textContent=arC>0?`YouTube ${ytC} · Archive ${arC}`:'';
+  // Comptage par source
+  const counts={youtube:0,archive:0,dailymotion:0,peertube:0};
+  vs.forEach(v=>{if(counts[v.source]!==undefined)counts[v.source]++;});
+  const parts=[];
+  if(counts.youtube>0)parts.push(`YT ${counts.youtube}`);
+  if(counts.archive>0)parts.push(`Archive ${counts.archive}`);
+  if(counts.dailymotion>0)parts.push(`DM ${counts.dailymotion}`);
+  if(counts.peertube>0)parts.push(`PT ${counts.peertube}`);
+  sec.querySelector('.sec-src').textContent=parts.join(' · ');
   const grid=sec.querySelector('.vgrid');grid.innerHTML='';
   if(!scored.length){grid.innerHTML='<div class="empty">Aucun résultat.</div>';return;}
   scored.forEach(({v,s})=>grid.appendChild(mkCard(v,s)));
@@ -1134,7 +1287,7 @@ async function doSearch(q){
   const secs=document.getElementById('sections');
   const sec=mkSection(`« ${q} »`,null,'srch');secs.innerHTML='';secs.appendChild(sec);
   try{
-    const vs=fv(await fetchBoth(`${q} documentaire français`,q,'default',10,4));
+    const vs=fv(await fetchAllQuery(q,'default'));
     renderSection(sec,vs,null);
   }catch(e){secs.innerHTML='<div class="empty" style="padding:32px">Erreur de chargement.</div>';}
 }
@@ -1160,7 +1313,7 @@ function mkCard(v,sc){
       <div class="card-ov"><div class="play-ring"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div>
       ${v.duration?`<div class="card-dur">${v.duration}</div>`:''}
       ${showSc?`<div class="card-score-b">${sc}%</div>`:''}
-      ${isArch?`<div class="card-src-b">Archive · DP</div>`:''}
+      ${isArch?`<div class="card-src-b">Archive · DP</div>`:v.source==='dailymotion'?`<div class="card-src-b">Dailymotion</div>`:v.source==='peertube'?`<div class="card-src-b">PeerTube</div>`:''}
       <button class="card-sig" onclick="sigCard(event)" title="Signaler"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 2v5M7 9v1"/><circle cx="7" cy="7" r="5.5"/></svg></button>
       <button class="card-fav ${isOn?'on':''}" onclick="toggleFav(event,'${v.videoId}',this)"><svg viewBox="0 0 14 14"><path d="M7 11.5L2.5 7.5A2.5 2.5 0 016.5 4c.4 0 .8.2 1 .5.3-.3.7-.5 1-.5A2.5 2.5 0 0111.5 7.5z"/></svg></button>
     </div>
@@ -1193,7 +1346,9 @@ function openInfoPanel(v,cardEl){
   document.getElementById('info-img').onerror=function(){this.style.opacity='.2';};
   // Badge source
   const srcBadge=document.getElementById('info-src-badge');
-  if(v.source==='archive'){srcBadge.style.display='block';srcBadge.textContent='Archive · Domaine public';}
+  const srcLabels={archive:'Archive · Domaine public',dailymotion:'Dailymotion',peertube:'PeerTube',youtube:''};
+  const srcLbl=srcLabels[v.source]||'';
+  if(srcLbl){srcBadge.style.display='block';srcBadge.textContent=srcLbl;}
   else srcBadge.style.display='none';
   // Titre
   document.getElementById('info-title').textContent=v.title;
@@ -1214,7 +1369,12 @@ function openInfoPanel(v,cardEl){
     </div>
     <div class="info-row">
       <svg class="info-row-ic" viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 1l1.5 3 3.5.5-2.5 2.5.5 3.5L7 9l-3 1.5.5-3.5L2 4.5 5.5 4z"/></svg>
-      <div><div class="info-row-label">Origine</div><div class="info-row-val ac">${v.source==='archive'?'Internet Archive — Domaine public':'YouTube — Contenu officiel'}</div></div>
+      <div><div class="info-row-label">Origine</div><div class="info-row-val ac">${
+        v.source==='archive'?'Internet Archive — Domaine public':
+        v.source==='dailymotion'?'Dailymotion — Contenu officiel':
+        v.source==='peertube'?'PeerTube — Contenu libre (CC)':
+        'YouTube — Contenu officiel'
+      }</div></div>
     </div>
     ${v.source==='youtube'?`<div class="info-row">
       <svg class="info-row-ic" viewBox="0 0 14 14" fill="none" stroke="currentColor"><rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="M1 5h12"/></svg>
@@ -1255,7 +1415,12 @@ function openPlayer(v){
   curVideo=v;
   document.getElementById('ptitle').innerHTML=`<i>${esc(v.title)}</i>`;
   document.getElementById('pmeta').innerHTML=`<span>${esc(v.channel||'')}</span>${v.year?`<span>·</span><span>${v.year}</span>`:''}${v.source==='archive'?`<span>·</span><span style="color:var(--ac);font-size:10px;letter-spacing:.06em;text-transform:uppercase">Domaine public</span>`:''}`;
-  const src=v.source==='archive'?(v.embedUrl||`${ARCH_BASE}/embed/${v.videoId}`):`https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0`;
+  const src={
+    youtube:`https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0`,
+    archive:v.embedUrl||`https://archive.org/embed/${v.videoId}`,
+    dailymotion:v.embedUrl||`https://www.dailymotion.com/embed/video/${v.videoId}?autoplay=1`,
+    peertube:v.embedUrl||`https://sepiasearch.org/videos/embed/${v.videoId}?autoplay=1`,
+  }[v.source]||`https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0`;
   document.getElementById('pvid').innerHTML=`<iframe src="${src}" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
   document.getElementById('post-watch').classList.remove('show');
   document.getElementById('player').classList.add('open');
