@@ -158,12 +158,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--t);font-f
   width:100%;padding-bottom:56.25%;
   overflow:hidden;background:var(--s2);
 }
-.card-thumb img{
+.card-thumb-ph{
   position:absolute;inset:0;
-  width:100%;height:100%;object-fit:cover;display:block;
-  transition:transform .35s;
-  filter:brightness(.9) saturate(.88);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:8px;
+  background:var(--s2);color:var(--t3);
 }
+.card-thumb-ph svg{width:28px;height:28px;opacity:.3;stroke-width:1.2}
+.card-thumb-ph span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.4}
+.card-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .card:hover .card-thumb img{transform:scale(1.04)}
 .card-ov{
   position:absolute;inset:0;
@@ -789,66 +792,108 @@ const ARCH_BASE='https://archive.org';
 
 const BL_DEFAULT=['RMC','RMC Découverte','RMC Sport','RMC BFM','BFM TV','BFMTV','France 24','C8','CNews','NRJ 12','TPMP','Cyril Hanouna','Touche Pas à Mon Poste'];
 
-// Mots-clés à exclure — contenu polémique, haineux, religieux sensible, complotiste
-const ARCH_BLACKLIST=[
-  'muhammad','islam','allah','jihad','quran','bible','jesus','christ','religion',
-  'nazi','concentration camp','holocaust','hitler','SS','gestapo',
-  'conspiracy','illuminati','freemason','secret society','nwo',
-  'sex','porn','adult','nude','naked','erotic',
-  'murder','killing','genocide','massacre','torture','execution',
-  'racist','racism','supremacy','kkk','aryan',
-  'propaganda','manifesto','extremist','terrorist','radical',
-  'truth about','absolute truth','exposed','they dont want',
+// ── FILTRE CONTENU STRICT ──────────────────────────────────────────────────
+// Tout contenu dont le titre ou la description contient ces mots est exclu
+const CONTENT_BLACKLIST=[
+  // Corps, sexualité, mutilations
+  'excis','excision','mutilation','sexuel','sexe','corps','nu ','nue ','nudité',
+  'avortement','contraception','prostitution','viol','agression','inceste',
+  'pornograph','érotique','intime','genre','transgenre','transidentité',
+  // Religion (neutre sur la plateforme)
+  'muhammad','islam','allah','jihad','quran','coran','bible','jésus','christ',
+  'religion','église','mosquée','synagogue','dieu ','prière','croyance',
+  // Violence et conflits sensibles
+  'nazi','concentration camp','holocaust','hitler','SS ','génocide',
+  'massacre','torture','exécution','meurtre','crime de guerre',
+  'terroriste','terrorisme','attentat','djihadiste','islamiste',
+  // Polémique sociétale
+  'complot','illuminati','franc-maçon','secret society',
+  'racisme','suprématie','kkk','aryen','antisémit',
+  'propagande','extrémiste','radical','manifeste',
+  'immigration','migrants','identité nationale','woke','cancel',
+  'avortement','euthanasie','peine de mort','drogue','addiction',
+  // Santé sensible
+  'suicide','automutilation','anorexie','boulimie',
+  'overdose','stupéfiant','cannabis','cocaïne','héroïne',
+  // Clickbait / sensationnaliste
+  'choc','shocking','scandale','révélation','incroyable','fou ',
+  'interdit','censuré','caché','truth','exposed','they hide',
+  'absolute truth','conspiracy','illuminati',
+  // Anglais sensible
+  'sex','porn','adult','nude','naked','erotic','murder','killing',
+  'genocide','torture','execution','racist','racism','supremacy',
+  'propaganda','extremist','terrorist','radical',
 ];
 
-function isArchBlacklisted(v){
-  const txt=(v.title+' '+(v.description||'')+(v.channel||'')).toLowerCase();
-  return ARCH_BLACKLIST.some(w=>txt.includes(w));
+// Filtre universel — s'applique à toutes les sources
+function isContentBlacklisted(v){
+  const txt=(
+    (v.title||'')+' '+
+    (v.description||'')+' '+
+    (v.channel||'')
+  ).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return CONTENT_BLACKLIST.some(w=>{
+    const wn=w.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return txt.includes(wn);
+  });
 }
 
-// Traductions françaises pour les descriptions Archive anglaises
+// Garde isArchBlacklisted pour compatibilité
+function isArchBlacklisted(v){return isContentBlacklisted(v);}
+
+// ── DESCRIPTIONS FRANÇAISES ────────────────────────────────────────────────
 const ARCH_DESC_FR={
   default:'Contenu éducatif du domaine public, disponible librement sur Internet Archive.',
   science:'Document scientifique et pédagogique issu des archives publiques.',
-  histoire:'Document historique issu des archives publiques, à valeur éducative.',
-  monde:'Reportage ou documentaire sur le monde, issu des archives publiques.',
+  histoire:'Document historique à valeur éducative, issu des archives publiques.',
+  monde:'Documentaire géographique et culturel, issu des archives publiques.',
   espace:'Document scientifique sur l\'astronomie et l\'exploration spatiale.',
-  societe:'Document éducatif sur les sciences sociales, issu des archives publiques.',
+  societe:'Document pédagogique sur les sciences humaines et sociales.',
 };
 
-// Traduction simple du titre anglais si nécessaire
 function needsTranslation(text){
   if(!text)return false;
-  // Détecte si le texte est principalement anglais (mots courants anglais)
   const englishWords=['the','of','and','in','to','a','is','it','for','on','with','this','that','are','was','film','reel','part'];
   const words=text.toLowerCase().split(/\s+/);
   const engCount=words.filter(w=>englishWords.includes(w)).length;
   return engCount>1||engCount/words.length>0.25;
 }
 
+// ── CATÉGORIES — requêtes resserrées, 100% pédagogiques ───────────────────
 const CATS=[
-  {id:'monde',   label:'Monde',   themes:['monde','geopolitique'],
-   ytQ:'documentaire monde complet français',
-   // Archive : requêtes ciblées sur contenu éducatif neutre et non polémique
-   archQ:'geography nature travel educational documentary',
-   archCat:'monde'},
-  {id:'science', label:'Science', themes:['science','technologie','nature'],
-   ytQ:'documentaire science vulgarisation complet français',
-   archQ:'science physics biology chemistry educational film',
-   archCat:'science'},
-  {id:'histoire',label:'Histoire',themes:['histoire'],
-   ytQ:'documentaire histoire complet français',
-   // Histoire : éviter guerres et conflits sensibles, cibler civilisations
-   archQ:'ancient civilization archaeology prehistoric educational film',
-   archCat:'histoire'},
-  {id:'espace',  label:'Espace',  themes:['espace','science'],
-   ytQ:'documentaire espace univers complet français',
-   archQ:'space astronomy cosmos planets stars educational',
-   archCat:'espace'},
-  {id:'societe', label:'Société', themes:['societe','psychologie','economie'],
-   ytQ:'documentaire société enquête complet français',
-   archQ:'educational social documentary culture community',
-   archCat:'societe'},
+  {
+    id:'monde', label:'Monde',
+    themes:['monde','geopolitique'],
+    // YouTube : requête précise sur géographie, nature, cultures — pas d'enquête
+    ytQ:'documentaire géographie nature culture monde arte france5',
+    archQ:'geography nature travel culture educational documentary',
+  },
+  {
+    id:'science', label:'Science',
+    themes:['science','technologie','nature'],
+    ytQ:'documentaire science physique biologie astronomie vulgarisation arte',
+    archQ:'science physics biology chemistry astronomy educational film',
+  },
+  {
+    id:'histoire', label:'Histoire',
+    themes:['histoire'],
+    // Histoire : antiquité, civilisations, archéologie — pas de guerres modernes sensibles
+    ytQ:'documentaire antiquité civilisation archéologie histoire arte france5',
+    archQ:'ancient civilization archaeology history educational documentary',
+  },
+  {
+    id:'espace', label:'Espace',
+    themes:['espace','science'],
+    ytQ:'documentaire espace planètes étoiles univers cosmos nasa arte',
+    archQ:'space astronomy cosmos planets stars universe educational',
+  },
+  {
+    id:'societe', label:'Société',
+    themes:['societe','psychologie','economie'],
+    // Société : économie, psychologie, éducation — PAS d'enquête sociale sensible
+    ytQ:'documentaire économie psychologie éducation apprentissage sciences humaines',
+    archQ:'economics psychology education social science documentary',
+  },
 ];
 
 const PC={
@@ -890,7 +935,10 @@ function isBlocked(ch){
   const cl=ch.toLowerCase();
   return[...BL_DEFAULT,...userBL].some(b=>cl.includes(b.toLowerCase()));
 }
-function fv(vs){return vs.filter(v=>!isBlocked(v.channel));}
+// Filtre combiné — chaîne bloquée OU contenu non pédagogique
+function fv(vs){
+  return vs.filter(v=>!isBlocked(v.channel)&&!isContentBlacklisted(v));
+}
 
 /* ── SCORE ── */
 function score(v,catId){
@@ -1026,26 +1074,25 @@ const DM_TRUSTED_CHANNELS=[
 
 async function dmSearch(q,catId,n=4){
   try{
-    // Dailymotion API publique — pas de clé requise pour lecture
+    // Dailymotion API publique v2 — paramètres valides uniquement
     const params=new URLSearchParams({
       search:q,
-      fields:'id,title,description,duration,thumbnail_360_url,owner.screenname,created_time,channel',
-      limit:n*3,
+      fields:'id,title,description,duration,thumbnail_360_url,owner.screenname,created_time',
+      limit:String(n*3),
       sort:'relevance',
-      longer_than:600, // minimum 10 minutes
       language:'fr',
-      'no_content_filter':0,
-      family_filter:1, // contenu familial uniquement
+      family_filter:'true',
     });
     const url=`https://api.dailymotion.com/videos?${params}`;
     const r=await fetch(url);
-    if(!r.ok){console.warn('Dailymotion',r.status);return[];}
+    if(!r.ok){console.warn('Dailymotion',r.status,await r.text().catch(()=>''));return[];}
     const d=await r.json();
     return(d.list||[])
       .filter(x=>{
         if(!x.id||!x.title)return false;
+        if(x.duration&&x.duration<600)return false;
         const tmp={title:x.title,description:x.description||'',channel:x['owner.screenname']||''};
-        if(isArchBlacklisted(tmp))return false;
+        if(isContentBlacklisted(tmp))return false;
         return true;
       })
       .slice(0,n)
@@ -1056,7 +1103,7 @@ async function dmSearch(q,catId,n=4){
         channel:x['owner.screenname']||'Dailymotion',
         year:x.created_time?new Date(x.created_time*1000).getFullYear().toString():'',
         duration:x.duration?formatDmDur(x.duration):'',
-        thumb:x.thumbnail_360_url||`https://www.dailymotion.com/thumbnail/video/${x.id}`,
+        thumb:x.thumbnail_360_url||'',
         description:x.description||`Documentaire éducatif — ${x.title}`,
         embedUrl:`https://www.dailymotion.com/embed/video/${x.id}?autoplay=1`,
       }));
@@ -1069,21 +1116,18 @@ function formatDmDur(sec){
 }
 
 /* ══════════════════════════════════════
-   API PEERTUBE
-   Instance éducative francophone
-   Via l'instance sepiasearch.org (agrégateur)
+   API PEERTUBE via SepiaSearch
+   Thumbnails via proxy natif pour éviter CORS
 ══════════════════════════════════════ */
 async function peertubeSearch(q,catId,n=3){
   try{
-    // SepiaSearch = moteur de recherche fédéré Peertube
     const params=new URLSearchParams({
       search:q,
       resultType:'videos',
       languageOneOf:'fr',
-      isLocal:false,
-      count:n*2,
+      count:String(n*2),
       sort:'-match',
-      durationMin:600, // min 10 min
+      durationMin:'600',
       nsfw:'false',
     });
     const url=`https://sepiasearch.org/api/v1/search/videos?${params}`;
@@ -1094,21 +1138,28 @@ async function peertubeSearch(q,catId,n=3){
       .filter(x=>{
         if(!x.uuid||!x.name)return false;
         const tmp={title:x.name,description:x.description||'',channel:x.channel?.displayName||''};
-        if(isArchBlacklisted(tmp))return false;
+        if(isContentBlacklisted(tmp))return false;
         return true;
       })
       .slice(0,n)
-      .map(x=>({
-        videoId:x.uuid,
-        source:'peertube',
-        title:x.name,
-        channel:x.channel?.displayName||x.account?.displayName||'PeerTube',
-        year:x.publishedAt?new Date(x.publishedAt).getFullYear().toString():'',
-        duration:x.duration?formatDmDur(x.duration):'',
-        thumb:x.thumbnailPath?`https://sepiasearch.org${x.thumbnailPath}`:x.previewPath?`https://sepiasearch.org${x.previewPath}`:'',
-        description:x.description||`Contenu éducatif libre — ${x.name}`,
-        embedUrl:x.embedPath?`https://sepiasearch.org${x.embedPath}`:`https://sepiasearch.org/videos/embed/${x.uuid}`,
-      }));
+      .map(x=>{
+        // Pas de thumbnail distante pour éviter OpaqueResponseBlocking Firefox
+        // On utilise un placeholder générique
+        const embedUrl=x.embedPath
+          ?`https://sepiasearch.org${x.embedPath}`
+          :`https://sepiasearch.org/videos/embed/${x.uuid}`;
+        return{
+          videoId:x.uuid,
+          source:'peertube',
+          title:x.name,
+          channel:x.channel?.displayName||x.account?.displayName||'PeerTube',
+          year:x.publishedAt?new Date(x.publishedAt).getFullYear().toString():'',
+          duration:x.duration?formatDmDur(x.duration):'',
+          thumb:'', // pas de thumbnail pour éviter CORS Firefox
+          description:x.description||`Contenu éducatif libre — ${x.name}`,
+          embedUrl,
+        };
+      });
   }catch(e){console.warn('Peertube failed:',e);return[];}
 }
 
@@ -1309,7 +1360,10 @@ function mkCard(v,sc){
   el.className='card'+(isSeen?' seen':'')+(showSc?' scored':'');
   el.innerHTML=`
     <div class="card-thumb">
-      <img src="${esc(v.thumb)}" alt="" loading="lazy" onerror="this.style.opacity='.25';this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'"/>
+      ${v.thumb
+        ? `<img src="${esc(v.thumb)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><div class="card-thumb-ph" style="display:none">${srcIcon(v.source)}</div>`
+        : `<div class="card-thumb-ph">${srcIcon(v.source)}</div>`
+      }
       <div class="card-ov"><div class="play-ring"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div>
       ${v.duration?`<div class="card-dur">${v.duration}</div>`:''}
       ${showSc?`<div class="card-score-b">${sc}%</div>`:''}
@@ -1557,6 +1611,16 @@ document.addEventListener('keydown',e=>{
     document.getElementById('legal').classList.remove('open');
   }
 });
+function srcIcon(src){
+  const icons={
+    youtube:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 8s-.25-1.7-1-2.36c-.98-1-2.07-1-2.57-1.04C15.8 4.5 12 4.5 12 4.5s-3.8 0-6.43.1c-.5.04-1.59.04-2.57 1.04C2.25 6.3 2 8 2 8S1.75 10 1.75 12s.25 4 .25 4 .25 1.7 1 2.36c.98 1 2.26.97 2.83 1.07C7.5 19.5 12 19.5 12 19.5s3.8 0 6.43-.1c.5-.04 1.59-.04 2.57-1.04.75-.66 1-2.36 1-2.36s.25-2 .25-4-.25-4-.25-4z"/><polygon points="10,9 16,12 10,15"/></svg><span>YouTube</span>`,
+    archive:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 8V21H3V8"/><path d="M23 3H1v5h22z"/><path d="M10 12h4"/></svg><span>Archive</span>`,
+    dailymotion:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="10,8 17,12 10,16"/></svg><span>Dailymotion</span>`,
+    peertube:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>PeerTube</span>`,
+  };
+  return icons[src]||icons.youtube;
+}
+
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 init();
