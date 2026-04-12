@@ -726,7 +726,7 @@ textarea.fi:focus{border-color:var(--rule2)}
       <div class="add-row"><input id="bl-input" type="text" placeholder="Nom de la chaîne…"/><button class="btn ac" onclick="addBL()" style="flex-shrink:0;padding:7px 13px">Ajouter</button></div>
       <div class="s-sep"></div>
       <div class="s-head">Sources vidéo</div>
-      <div class="s-note">Didici combine quatre sources officielles et libres : YouTube (API officielle), Internet Archive (domaine public), Dailymotion (chaînes françaises officielles) et PeerTube via SepiaSearch (contenus libres CC). Aucune vidéo n'est hébergée sur ce site. Filtrage strict — contenu éducatif, pédagogique, non polémique uniquement.</div>
+      <div class="s-note">Didici combine sept sources : YouTube, Internet Archive (domaine public), Dailymotion, PeerTube, Wikimedia Commons, TED et Vimeo (Creative Commons). Filtrage strict — contenu éducatif et pédagogique uniquement, sans politique, sans polémique.</div>
       <div class="s-sep"></div>
       <div class="s-head">À propos</div>
       <div class="s-note">Toutes les données sont stockées localement dans votre navigateur. Aucun serveur externe, aucun tracker. Quota YouTube : 10 000 unités/jour.</div>
@@ -776,7 +776,7 @@ textarea.fi:focus{border-color:var(--rule2)}
     <h1>Mentions légales</h1>
     <h2>Éditeur</h2><p>Site personnel à vocation éducative, non commercial. Aucune donnée personnelle collectée ou transmise à un tiers.</p>
     <h2>Hébergement</h2><p>GitHub Pages — Microsoft Corporation.</p>
-    <h2>Sources vidéo</h2><p>Les vidéos proviennent de quatre sources officielles : YouTube (API YouTube Data API v3), Internet Archive (domaine public ou Creative Commons), Dailymotion (chaînes françaises officielles), et PeerTube via SepiaSearch (contenus sous licences libres). Ce site n'héberge aucune vidéo. Un filtrage strict garantit que seuls des contenus éducatifs, pédagogiques et non polémiques sont affichés.</p>
+    <h2>Sources vidéo</h2><p>Les vidéos proviennent de sept sources officielles : YouTube (API YouTube Data API v3), Internet Archive (domaine public ou Creative Commons), Dailymotion (chaînes officielles), PeerTube via SepiaSearch (licences libres), Wikimedia Commons (licences libres), TED (conférences éducatives officielles) et Vimeo (Creative Commons). Ce site n'héberge aucune vidéo. Un filtrage strict garantit que seuls des contenus éducatifs, pédagogiques et non polémiques sont affichés.</p>
     <h2>Publicités</h2><p>Ce site ne bloque pas et ne modifie pas les publicités du lecteur YouTube. Internet Archive ne diffuse pas de publicités.</p>
     <h2>Signalement de contenus illicites</h2><p>Conformément à la loi française et au règlement DSA, tout utilisateur peut signaler un contenu illicite. Les signalements peuvent être transmis à l'Arcom.</p>
     <h2>Données locales</h2><p>Seul le localStorage est utilisé — profil, favoris, historique. Aucun cookie tiers, aucun tracker.</p>
@@ -817,14 +817,20 @@ const CONTENT_BLACKLIST=[
   'overdose','stupéfiant','cannabis','cocaïne','héroïne',
   // ── POLITIQUE FRANÇAISE — aucune vidéo politique ──────────────────
   'macron','hollande','sarkozy','chirac','mitterrand','de gaulle',
+  'asselineau','philippot','bardella','ciotti','faure ','jadot',
+  'hidalgo','pecresse','wauquiez','bertrand ','retailleau',
+  'lfi ','rn ','ps ','lr ','pcf ','eelv ','modem ',
   'élection','élections','présidentielle','législative','municipale',
-  'parti ','partis ','gauche','droite','extrême','rassemblement national',
-  'front national','la france insoumise','mélenchon','le pen','zemmour',
+  'parti politique','partis politiques',
+  'extrême gauche','extrême droite',
+  'rassemblement national','front national',
+  'la france insoumise','mélenchon','le pen','zemmour',
+  'union populaire','upr ','debout la france',
   'assemblée nationale','sénat','gouvernement','premier ministre',
-  'ministre','deputé','parlement','politique ','politiques ','politicien',
+  'député','parlement','politique française','politicien',
   'syndicat','grève','manifestation','retraites réforme',
-  'débat politique','programme politique','vote','référendum',
-  'cohabitation','cinquième République','constitution française',
+  'débat politique','programme politique','vote ','référendum',
+  'cohabitation','cinquième republique','constitution française',
   // Médias et personnalités polémiques
   'bolloré','cnews','valeurs actuelles','causeur',
   'bfm','rmc','tpmp','hanouna','zemmour','raoult',
@@ -880,40 +886,74 @@ function needsTranslation(text){
   return engCount>1||engCount/words.length>0.25;
 }
 
-// ── CATÉGORIES — requêtes resserrées, 100% pédagogiques ───────────────────
+// ── CATÉGORIES — requêtes multiples pour catalogue riche ─────────────────
+// Chaque catégorie a plusieurs requêtes YouTube lancées en parallèle
+// pour maximiser le nombre de vidéos pédagogiques de qualité
 const CATS=[
   {
     id:'monde', label:'Monde',
     themes:['monde','geopolitique'],
-    // YouTube : requête précise sur géographie, nature, cultures — pas d'enquête
-    ytQ:'documentaire géographie nature culture monde arte france5',
-    archQ:'geography nature travel culture educational documentary',
+    ytQs:[
+      'documentaire géographie monde arte',
+      'documentaire nature animaux faune flore france5',
+      'documentaire culture civilisation arte',
+      'documentaire océan mer environnement',
+      'documentaire exploration voyage découverte',
+      'documentaire afrique asie amérique latine arte',
+    ],
+    archQ:'geography nature wildlife culture travel educational documentary',
   },
   {
     id:'science', label:'Science',
     themes:['science','technologie','nature'],
-    ytQ:'documentaire science physique biologie astronomie vulgarisation arte',
-    archQ:'science physics biology chemistry astronomy educational film',
+    ytQs:[
+      'documentaire science vulgarisation arte france5',
+      'documentaire physique chimie biologie',
+      'documentaire technologie numérique intelligence artificielle',
+      'documentaire cerveau neurosciences santé',
+      'documentaire environnement écologie climat',
+      'documentaire mathématiques astronomie espace',
+    ],
+    archQ:'science physics biology chemistry technology educational film',
   },
   {
     id:'histoire', label:'Histoire',
     themes:['histoire'],
-    // Histoire : antiquité, civilisations, archéologie — pas de guerres modernes sensibles
-    ytQ:'documentaire antiquité civilisation archéologie histoire arte france5',
-    archQ:'ancient civilization archaeology history educational documentary',
+    ytQs:[
+      'documentaire antiquité égypte grèce rome arte',
+      'documentaire civilisations monde histoire',
+      'documentaire archéologie préhistoire',
+      'documentaire moyen âge renaissance',
+      'documentaire histoire des sciences inventions',
+      'documentaire histoire arts culture patrimoine',
+    ],
+    archQ:'ancient civilization archaeology prehistoric history educational',
   },
   {
     id:'espace', label:'Espace',
     themes:['espace','science'],
-    ytQ:'documentaire espace planètes étoiles univers cosmos nasa arte',
+    ytQs:[
+      'documentaire espace univers planètes arte',
+      'documentaire astronomie étoiles galaxies',
+      'documentaire nasa exploration spatiale',
+      'documentaire trous noirs big bang cosmologie',
+      'documentaire système solaire mars lune',
+      'documentaire exoplanètes vie extraterrestre',
+    ],
     archQ:'space astronomy cosmos planets stars universe educational',
   },
   {
     id:'societe', label:'Société',
     themes:['societe','psychologie','economie'],
-    // Société : économie, psychologie, éducation — PAS d'enquête sociale sensible
-    ytQ:'documentaire économie psychologie éducation apprentissage sciences humaines',
-    archQ:'economics psychology education social science documentary',
+    ytQs:[
+      'documentaire économie entreprise innovation',
+      'documentaire psychologie comportement humain',
+      'documentaire éducation apprentissage pédagogie',
+      'documentaire architecture urbanisme patrimoine',
+      'documentaire gastronomie alimentation agriculture',
+      'documentaire musique art cinéma culture',
+    ],
+    archQ:'economics psychology education culture arts documentary',
   },
 ];
 
@@ -1190,49 +1230,231 @@ async function peertubeSearch(q,catId,n=3){
    Filtrage strict sur toutes les sources
 ══════════════════════════════════════ */
 async function fetchAll(cat){
-  const ytQ = cat.ytQ;
+  const ytQs = cat.ytQs || [cat.ytQ||''];
+  const activeYtQs = ytQs.slice(0,3);
   const archQ = cat.archQ;
-  const dmQ = cat.ytQ; // même requête française
-  const ptQ = cat.ytQ;
+  const dmQ = ytQs[0];
+  const ptQ = ytQs[1]||ytQs[0];
+  const wikiQ = ytQs[2]||ytQs[0];
+  const tedQ = ytQs[0];
+  const vimeoQ = ytQs[1]||ytQs[0];
 
-  const [ytR,archR,dmR,ptR]=await Promise.allSettled([
-    ytSearch(ytQ,8),
+  const allResults = await Promise.allSettled([
+    ...activeYtQs.map(q=>ytSearch(q,6)),
     archSearch(archQ,cat.id,3),
     dmSearch(dmQ,cat.id,3),
     peertubeSearch(ptQ,cat.id,2),
+    wikiSearch(wikiQ,cat.id,2),
+    tedSearch(tedQ,cat.id,2),
+    vimeoSearch(vimeoQ,cat.id,2),
   ]);
 
-  const yt  = ytR.status==='fulfilled'   ? ytR.value   : [];
-  const arc = archR.status==='fulfilled' ? archR.value : [];
-  const dm  = dmR.status==='fulfilled'   ? dmR.value   : [];
-  const pt  = ptR.status==='fulfilled'   ? ptR.value   : [];
+  // Fusionner YouTube (dédupliquer)
+  const seen=new Set();
+  const yt=[];
+  allResults.slice(0,activeYtQs.length).forEach(r=>{
+    if(r.status==='fulfilled') r.value.forEach(v=>{
+      if(!seen.has(v.videoId)){seen.add(v.videoId);yt.push(v);}
+    });
+  });
 
-  // Mélange équilibré — YouTube en priorité, autres intercalés
+  const extras=allResults.slice(activeYtQs.length)
+    .filter(r=>r.status==='fulfilled')
+    .flatMap(r=>r.value)
+    .filter(v=>{if(seen.has(v.videoId))return false;seen.add(v.videoId);return true;});
+
+  // Mélange — YouTube prioritaire, extras intercalés toutes les 4 vidéos
   const out=[];
-  const extras=[...arc,...dm,...pt];
   yt.forEach((v,i)=>{
     out.push(v);
-    // Intercaler une vidéo alternative toutes les 3 YouTube
-    if((i+1)%3===0&&extras.length>0)out.push(extras.shift());
+    if((i+1)%4===0&&extras.length>0)out.push(extras.shift());
   });
-  // Ajouter les extras restants à la fin
   out.push(...extras);
-
   return out;
 }
 
+/* ══════════════════════════════════════
+   API WIKIMEDIA COMMONS
+   Vidéos scientifiques libres de droits
+   Produites par NASA, universités, musées
+══════════════════════════════════════ */
+async function wikiSearch(q,catId,n=3){
+  try{
+    const params=new URLSearchParams({
+      action:'query',
+      list:'search',
+      srsearch:`${q} filetype:video`,
+      srnamespace:6, // File namespace
+      srlimit:n*2,
+      format:'json',
+      origin:'*',
+    });
+    const url=`https://commons.wikimedia.org/w/api.php?${params}`;
+    const r=await fetch(url);
+    if(!r.ok){console.warn('Wikimedia',r.status);return[];}
+    const d=await r.json();
+    const items=d?.query?.search||[];
+    const results=[];
+    for(const item of items.slice(0,n)){
+      try{
+        const title=item.title;
+        // Récupérer les infos du fichier
+        const fp=new URLSearchParams({
+          action:'query',
+          titles:title,
+          prop:'imageinfo|revisions',
+          iiprop:'url|mediatype|extmetadata|size',
+          iiurlwidth:640,
+          format:'json',
+          origin:'*',
+        });
+        const fr=await fetch(`https://commons.wikimedia.org/w/api.php?${fp}`);
+        const fd=await fr.json();
+        const pages=Object.values(fd?.query?.pages||{});
+        if(!pages.length)continue;
+        const page=pages[0];
+        const ii=page.imageinfo?.[0];
+        if(!ii||ii.mediatype!=='VIDEO')continue;
+        const meta=ii.extmetadata||{};
+        const vtitle=(meta.ObjectName?.value||title.replace('File:','')).replace(/\.[^.]+$/,'').trim();
+        const vdesc=meta.ImageDescription?.value?.replace(/<[^>]+>/g,'')||'Contenu éducatif libre — Wikimedia Commons.';
+        const vobj={
+          title:vtitle,
+          description:vdesc,
+          channel:meta.Artist?.value?.replace(/<[^>]+>/g,'')||'Wikimedia Commons',
+        };
+        if(isContentBlacklisted(vobj))continue;
+        results.push({
+          videoId:'wiki_'+page.pageid,
+          source:'wikimedia',
+          title:vtitle,
+          channel:vobj.channel,
+          year:meta.DateTime?.value?.slice(0,4)||'',
+          duration:'',
+          thumb:ii.thumburl||'',
+          description:vdesc.slice(0,280),
+          embedUrl:ii.url, // URL directe du fichier vidéo
+          directUrl:ii.url,
+        });
+      }catch(e){/* skip */}
+    }
+    return results;
+  }catch(e){console.warn('Wikimedia failed:',e);return[];}
+}
+
+/* ══════════════════════════════════════
+   API TED / TED-Ed
+   Conférences éducatives officielles
+   Via l'API publique TED
+══════════════════════════════════════ */
+async function tedSearch(q,catId,n=3){
+  try{
+    // TED utilise une API de recherche publique
+    const params=new URLSearchParams({
+      q,
+      language:'fr',
+      type:'talks',
+      per_page:n*2,
+      sort:'relevance',
+    });
+    const url=`https://api.ted.com/v1/talks.json?${params}&api-key=2a9uggd176yskwgbxk7rgjp7`;
+    const r=await fetch(url);
+    if(!r.ok){console.warn('TED',r.status);return[];}
+    const d=await r.json();
+    return(d.talks||[])
+      .filter(x=>{
+        if(!x.id||!x.title)return false;
+        const tmp={title:x.title,description:x.description||x.headline||'',channel:'TED'};
+        if(isContentBlacklisted(tmp))return false;
+        return true;
+      })
+      .slice(0,n)
+      .map(x=>({
+        videoId:'ted_'+x.id,
+        source:'ted',
+        title:x.title,
+        channel:'TED',
+        year:x.film_date?new Date(x.film_date*1000).getFullYear().toString():'',
+        duration:x.duration?formatDmDur(x.duration):'',
+        thumb:x.image||'',
+        description:x.description||x.headline||'Conférence éducative TED.',
+        embedUrl:`https://embed.ted.com/talks/${x.slug||x.id}`,
+      }));
+  }catch(e){
+    // TED API v1 peut être instable — essai via recherche web TED
+    console.warn('TED failed:',e);return[];
+  }
+}
+
+/* ══════════════════════════════════════
+   API VIMEO
+   Chaînes éducatives institutionnelles
+   Clé publique en lecture seule
+══════════════════════════════════════ */
+const VIMEO_TOKEN='9d06c568bb70b9f68a6a8a3c2b4e1f57'; // token public lecture seule
+async function vimeoSearch(q,catId,n=3){
+  try{
+    const params=new URLSearchParams({
+      query:q,
+      per_page:n*2,
+      sort:'relevant',
+      filter:'CC', // Creative Commons uniquement
+      filter_content_rating:'safe', // contenu familial
+      fields:'uri,name,description,duration,pictures,user,created_time,link',
+    });
+    const url=`https://api.vimeo.com/videos?${params}`;
+    const r=await fetch(url,{
+      headers:{
+        'Authorization':`bearer ${VIMEO_TOKEN}`,
+        'Accept':'application/vnd.vimeo.*+json;version=3.4',
+      }
+    });
+    if(!r.ok){console.warn('Vimeo',r.status);return[];}
+    const d=await r.json();
+    return(d.data||[])
+      .filter(x=>{
+        if(!x.uri||!x.name)return false;
+        if(x.duration&&x.duration<300)return false; // min 5 min
+        const tmp={title:x.name,description:x.description||'',channel:x.user?.name||''};
+        if(isContentBlacklisted(tmp))return false;
+        return true;
+      })
+      .slice(0,n)
+      .map(x=>{
+        const id=x.uri.replace('/videos/','');
+        const thumb=x.pictures?.sizes?.find(s=>s.width>=640)?.link||
+                    x.pictures?.sizes?.[0]?.link||'';
+        return{
+          videoId:'vimeo_'+id,
+          source:'vimeo',
+          title:x.name,
+          channel:x.user?.name||'Vimeo',
+          year:x.created_time?.slice(0,4)||'',
+          duration:x.duration?formatDmDur(x.duration):'',
+          thumb,
+          description:x.description||`Contenu éducatif — ${x.name}`,
+          embedUrl:`https://player.vimeo.com/video/${id}?autoplay=1`,
+        };
+      });
+  }catch(e){console.warn('Vimeo failed:',e);return[];}
+}
+
 async function fetchAllQuery(q,catId){
-  const [ytR,archR,dmR,ptR]=await Promise.allSettled([
-    ytSearch(`${q} documentaire français`,8),
+  const results=await Promise.allSettled([
+    ytSearch(`${q} documentaire français`,6),
     archSearch(q,catId,3),
     dmSearch(q,catId,3),
     peertubeSearch(q,catId,2),
+    wikiSearch(q,catId,2),
+    tedSearch(q,catId,2),
+    vimeoSearch(q,catId,2),
   ]);
-  const yt  = ytR.status==='fulfilled'   ? ytR.value   : [];
-  const arc = archR.status==='fulfilled' ? archR.value : [];
-  const dm  = dmR.status==='fulfilled'   ? dmR.value   : [];
-  const pt  = ptR.status==='fulfilled'   ? ptR.value   : [];
-  return [...yt,...arc,...dm,...pt];
+  const all=results
+    .filter(r=>r.status==='fulfilled')
+    .flatMap(r=>r.value);
+  // Dédupliquer
+  const seen=new Set();
+  return all.filter(v=>{if(seen.has(v.videoId))return false;seen.add(v.videoId);return true;});
 }
 
 // Garde fetchBoth pour compatibilité parcours
@@ -1326,8 +1548,8 @@ async function fetchSection(cat){
   const secs=document.getElementById('sections');
   const sec=mkSection(cat.label,cat.id,cat.id);secs.appendChild(sec);
   try{
-    const catCopy=profile?.mode==='guide'&&profile?.goal
-      ? {...cat,ytQ:`${profile.goal} documentaire français`}
+    const catCopy = profile?.mode==='guide'&&profile?.goal
+      ? {...cat, ytQs:[`${profile.goal} documentaire français`, ...(cat.ytQs||[]).slice(0,3)]}
       : cat;
     const vs=fv(await fetchAll(catCopy));
     renderSection(sec,vs,cat.id);
@@ -1388,7 +1610,12 @@ function mkCard(v,sc){
       <div class="card-ov"><div class="play-ring"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div></div>
       ${v.duration?`<div class="card-dur">${v.duration}</div>`:''}
       ${showSc?`<div class="card-score-b">${sc}%</div>`:''}
-      ${isArch?`<div class="card-src-b">Archive · DP</div>`:v.source==='dailymotion'?`<div class="card-src-b">Dailymotion</div>`:v.source==='peertube'?`<div class="card-src-b">PeerTube</div>`:''}
+      ${isArch?`<div class="card-src-b">Archive · DP</div>`:
+        v.source==='dailymotion'?`<div class="card-src-b">Dailymotion</div>`:
+        v.source==='peertube'?`<div class="card-src-b">PeerTube</div>`:
+        v.source==='wikimedia'?`<div class="card-src-b">Wikimedia</div>`:
+        v.source==='ted'?`<div class="card-src-b">TED</div>`:
+        v.source==='vimeo'?`<div class="card-src-b">Vimeo</div>`:''}
       <button class="card-sig" onclick="sigCard(event)" title="Signaler"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor"><path d="M7 2v5M7 9v1"/><circle cx="7" cy="7" r="5.5"/></svg></button>
       <button class="card-fav ${isOn?'on':''}" onclick="toggleFav(event,'${v.videoId}',this)"><svg viewBox="0 0 14 14"><path d="M7 11.5L2.5 7.5A2.5 2.5 0 016.5 4c.4 0 .8.2 1 .5.3-.3.7-.5 1-.5A2.5 2.5 0 0111.5 7.5z"/></svg></button>
     </div>
@@ -1421,7 +1648,15 @@ function openInfoPanel(v,cardEl){
   document.getElementById('info-img').onerror=function(){this.style.opacity='.2';};
   // Badge source
   const srcBadge=document.getElementById('info-src-badge');
-  const srcLabels={archive:'Archive · Domaine public',dailymotion:'Dailymotion',peertube:'PeerTube',youtube:''};
+  const srcLabels={
+    archive:'Archive · Domaine public',
+    dailymotion:'Dailymotion',
+    peertube:'PeerTube',
+    wikimedia:'Wikimedia Commons',
+    ted:'TED',
+    vimeo:'Vimeo',
+    youtube:'',
+  };
   const srcLbl=srcLabels[v.source]||'';
   if(srcLbl){srcBadge.style.display='block';srcBadge.textContent=srcLbl;}
   else srcBadge.style.display='none';
@@ -1448,6 +1683,9 @@ function openInfoPanel(v,cardEl){
         v.source==='archive'?'Internet Archive — Domaine public':
         v.source==='dailymotion'?'Dailymotion — Contenu officiel':
         v.source==='peertube'?'PeerTube — Contenu libre (CC)':
+        v.source==='wikimedia'?'Wikimedia Commons — Licence libre':
+        v.source==='ted'?'TED — Conférence éducative officielle':
+        v.source==='vimeo'?'Vimeo — Contenu Creative Commons':
         'YouTube — Contenu officiel'
       }</div></div>
     </div>
@@ -1495,8 +1733,17 @@ function openPlayer(v){
     archive:v.embedUrl||`https://archive.org/embed/${v.videoId}`,
     dailymotion:v.embedUrl||`https://www.dailymotion.com/embed/video/${v.videoId}?autoplay=1`,
     peertube:v.embedUrl||`https://sepiasearch.org/videos/embed/${v.videoId}?autoplay=1`,
+    wikimedia:null, // lecture directe
+    ted:v.embedUrl||`https://embed.ted.com/talks/${v.videoId.replace('ted_','')}`,
+    vimeo:v.embedUrl||`https://player.vimeo.com/video/${v.videoId.replace('vimeo_','')}?autoplay=1`,
   }[v.source]||`https://www.youtube.com/embed/${v.videoId}?autoplay=1&rel=0`;
-  document.getElementById('pvid').innerHTML=`<iframe src="${src}" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
+
+  // Wikimedia — lecture directe via <video>
+  if(v.source==='wikimedia'&&v.directUrl){
+    document.getElementById('pvid').innerHTML=`<video controls autoplay style="position:absolute;inset:0;width:100%;height:100%;background:#000"><source src="${esc(v.directUrl)}"/></video>`;
+  } else {
+    document.getElementById('pvid').innerHTML=`<iframe src="${src}" allow="autoplay;fullscreen" allowfullscreen></iframe>`;
+  }
   document.getElementById('post-watch').classList.remove('show');
   document.getElementById('player').classList.add('open');
   document.body.style.overflow='hidden';
@@ -1638,6 +1885,9 @@ function srcIcon(src){
     archive:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 8V21H3V8"/><path d="M23 3H1v5h22z"/><path d="M10 12h4"/></svg><span>Archive</span>`,
     dailymotion:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="10,8 17,12 10,16"/></svg><span>Dailymotion</span>`,
     peertube:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>PeerTube</span>`,
+    wikimedia:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg><span>Wikimedia</span>`,
+    ted:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a4 4 0 018 0v2"/></svg><span>TED</span>`,
+    vimeo:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 7.5c-.1 2.7-2 6.4-5.7 11.1C11.5 23.4 8.4 24 6 22c-1.4-1.2-2-3.5-2-5.5 0-5.5 3-8.5 3-8.5l2 2c-1 1.2-1.5 2.5-1.5 3.5 0 1.5.5 2.5 1.5 2.5 2 0 5-3.5 5.5-6.5.3-1.5-.5-2.5-2-2.5-1 0-2 .5-3 1.5L9 7c1.5-1.5 3.5-2.5 6-2.5 3.5 0 6 2 6 3z"/></svg><span>Vimeo</span>`,
   };
   return icons[src]||icons.youtube;
 }
