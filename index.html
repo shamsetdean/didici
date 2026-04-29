@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Didici</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0f'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' font-style='italic' font-weight='400' fill='%23c9a96e' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E"/>
 <meta name="theme-color" content="#0a0a0f"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
@@ -727,7 +726,7 @@ textarea.fi:focus{border-color:var(--rule2)}
       <div class="add-row"><input id="bl-input" type="text" placeholder="Nom de la chaîne…"/><button class="btn ac" onclick="addBL()" style="flex-shrink:0;padding:7px 13px">Ajouter</button></div>
       <div class="s-sep"></div>
       <div class="s-head">Sources vidéo</div>
-      <div class="s-note">Didici combine cinq sources : YouTube, Internet Archive (domaine public), Dailymotion, PeerTube et Wikimedia Commons. Filtrage strict — contenu éducatif et pédagogique uniquement, sans politique, sans polémique.</div>
+      <div class="s-note">Didici combine six sources : YouTube (dont chaînes TED, TED-Ed et TEDx officielles), Internet Archive (domaine public), Dailymotion, PeerTube et Wikimedia Commons. Filtrage strict — contenu éducatif et pédagogique uniquement, sans politique, sans polémique.</div>
       <div class="s-sep"></div>
       <div class="s-head">À propos</div>
       <div class="s-note">Toutes les données sont stockées localement dans votre navigateur. Aucun serveur externe, aucun tracker. Quota YouTube : 10 000 unités/jour.</div>
@@ -887,9 +886,43 @@ function needsTranslation(text){
   return engCount>1||engCount/words.length>0.25;
 }
 
+// ── CHAÎNES TED OFFICIELLES ───────────────────────────────────────────────
+// Intégrées via YouTube — pas de CORS, pas de clé séparée
+// TED          : UCsooa4yRKGN_zEE8iknghZA
+// TED-Ed       : UCSRTCFtCuBWMJpg1B_9h7Uw
+// TEDx Talks   : UCsT0YIqwnpJCM-mx7-gSA4Q
+const TED_CHANNELS='UCsooa4yRKGN_zEE8iknghZA,UCSRTCFtCuBWMJpg1B_9h7Uw,UCsT0YIqwnpJCM-mx7-gSA4Q';
+
+// Recherche ciblée sur les chaînes TED par thème
+async function tedYtSearch(q,n=4){
+  try{
+    // On cherche d'abord dans les chaînes TED officielles
+    const p=new URLSearchParams({
+      part:'snippet',q,type:'video',
+      videoEmbeddable:'true',
+      maxResults:n,
+      key:YTK,
+      // Filtre sur les chaînes TED uniquement
+      channelId:TED_CHANNELS.split(',')[0], // TED principal
+    });
+    const r=await fetch(`${YT_BASE}/search?${p}`);
+    if(!r.ok)return[];
+    const d=await r.json();
+    if(!d.items?.length)return[];
+    return d.items.map(i=>({
+      videoId:i.id.videoId,
+      source:'youtube',
+      title:i.snippet.title,
+      channel:i.snippet.channelTitle,
+      year:i.snippet.publishedAt?.slice(0,4)||'',
+      duration:'',
+      thumb:i.snippet.thumbnails?.medium?.url||`https://img.youtube.com/vi/${i.id.videoId}/mqdefault.jpg`,
+      description:i.snippet.description||'Conférence TED — contenu éducatif officiel.',
+    })).filter(v=>v.title.length>8&&!isContentBlacklisted(v));
+  }catch(e){return[];}
+}
+
 // ── CATÉGORIES — requêtes multiples pour catalogue riche ─────────────────
-// Chaque catégorie a plusieurs requêtes YouTube lancées en parallèle
-// pour maximiser le nombre de vidéos pédagogiques de qualité
 const CATS=[
   {
     id:'monde', label:'Monde',
@@ -901,8 +934,11 @@ const CATS=[
       'documentaire océan mer environnement',
       'documentaire exploration voyage découverte',
       'documentaire afrique asie amérique latine arte',
+      'ted talk géographie culture monde francais',
+      'tedx conférence monde civilisation',
     ],
     archQ:'geography nature wildlife culture travel educational documentary',
+    tedQ:'world geography culture civilization',
   },
   {
     id:'science', label:'Science',
@@ -914,8 +950,11 @@ const CATS=[
       'documentaire cerveau neurosciences santé',
       'documentaire environnement écologie climat',
       'documentaire mathématiques astronomie espace',
+      'ted talk science physique biologie francais',
+      'tedx conférence intelligence artificielle technologie',
     ],
     archQ:'science physics biology chemistry technology educational film',
+    tedQ:'science physics biology technology brain',
   },
   {
     id:'histoire', label:'Histoire',
@@ -927,8 +966,11 @@ const CATS=[
       'documentaire moyen âge renaissance',
       'documentaire histoire des sciences inventions',
       'documentaire histoire arts culture patrimoine',
+      'ted talk histoire civilisation archéologie',
+      'tedx conférence histoire patrimoine',
     ],
     archQ:'ancient civilization archaeology prehistoric history educational',
+    tedQ:'history civilization archaeology ancient',
   },
   {
     id:'espace', label:'Espace',
@@ -940,8 +982,11 @@ const CATS=[
       'documentaire trous noirs big bang cosmologie',
       'documentaire système solaire mars lune',
       'documentaire exoplanètes vie extraterrestre',
+      'ted talk espace cosmos astronomie francais',
+      'tedx conférence univers planètes exploration',
     ],
     archQ:'space astronomy cosmos planets stars universe educational',
+    tedQ:'space astronomy cosmos universe planets',
   },
   {
     id:'societe', label:'Société',
@@ -953,8 +998,11 @@ const CATS=[
       'documentaire architecture urbanisme patrimoine',
       'documentaire gastronomie alimentation agriculture',
       'documentaire musique art cinéma culture',
+      'ted talk psychologie éducation apprentissage francais',
+      'tedx conférence économie innovation société',
     ],
     archQ:'economics psychology education culture arts documentary',
+    tedQ:'psychology education innovation society',
   },
 ];
 
@@ -1237,20 +1285,17 @@ async function fetchAll(cat){
   const dmQ = ytQs[0];
   const ptQ = ytQs[1]||ytQs[0];
   const wikiQ = ytQs[2]||ytQs[0];
-  const tedQ = ytQs[0];
-  const vimeoQ = ytQs[1]||ytQs[0];
+  const tedQ = cat.tedQ||ytQs[0];
 
   const allResults = await Promise.allSettled([
-    ...activeYtQs.map(q=>ytSearch(q,6)),
+    ...activeYtQs.map(q=>ytSearch(q,5)),
     archSearch(archQ,cat.id,3),
     dmSearch(dmQ,cat.id,3),
     peertubeSearch(ptQ,cat.id,2),
     wikiSearch(wikiQ,cat.id,2),
-    tedSearch(tedQ,cat.id,2),
-    vimeoSearch(vimeoQ,cat.id,2),
+    tedYtSearch(tedQ,3),
   ]);
 
-  // Fusionner YouTube (dédupliquer)
   const seen=new Set();
   const yt=[];
   allResults.slice(0,activeYtQs.length).forEach(r=>{
@@ -1264,7 +1309,6 @@ async function fetchAll(cat){
     .flatMap(r=>r.value)
     .filter(v=>{if(seen.has(v.videoId))return false;seen.add(v.videoId);return true;});
 
-  // Mélange — YouTube prioritaire, extras intercalés toutes les 4 vidéos
   const out=[];
   yt.forEach((v,i)=>{
     out.push(v);
@@ -1360,15 +1404,13 @@ async function fetchAllQuery(q,catId){
     dmSearch(q,catId,3),
     peertubeSearch(q,catId,2),
     wikiSearch(q,catId,2),
-    tedSearch(q,catId,2),
-    vimeoSearch(q,catId,2),
+    tedYtSearch(q,3),
   ]);
-  const all=results
-    .filter(r=>r.status==='fulfilled')
-    .flatMap(r=>r.value);
-  // Dédupliquer
   const seen=new Set();
-  return all.filter(v=>{if(seen.has(v.videoId))return false;seen.add(v.videoId);return true;});
+  return results
+    .filter(r=>r.status==='fulfilled')
+    .flatMap(r=>r.value)
+    .filter(v=>{if(seen.has(v.videoId))return false;seen.add(v.videoId);return true;});
 }
 
 // Garde fetchBoth pour compatibilité parcours
